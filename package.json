@@ -1,0 +1,35 @@
+{
+  "name": "Mei Trans",
+  "version": "1.0.0",
+  "description": "Web Translator - AI-powered translation extension and backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "./scripts/kill-ports.sh",
+    "dev": "pnpm -r --parallel run dev",
+    "dev:extension": "pnpm --filter @meitrans/extension dev",
+    "dev:backend": "pnpm --filter @meitrans/backend dev",
+    "build": "pnpm run build:backend && pnpm run build:extension",
+    "build:extension": "pnpm --filter @meitrans/extension build",
+    "build:backend": "pnpm --filter @meitrans/backend build",
+    "deploy:backend": "pnpm --filter @meitrans/backend deploy",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint packages --ext .ts,.tsx",
+    "lint:fix": "eslint packages --ext .ts,.tsx --fix",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,js,json,css,md}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,js,json,css,md}\"",
+    "prepare": "husky"
+  },
+  "packageManager": "pnpm@10.17.0+sha512.fce8a3dd29a4ed2ec566fb53efbb04d8c44a0f05bc6f24a73046910fb9c3ce7afa35a0980500668fa3573345bd644644fa98338fa168235c80f4aa17aa17fbef",
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "typescript-eslint": "^8.54.0"
+  }
+}

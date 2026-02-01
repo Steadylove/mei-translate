@@ -1,0 +1,14 @@
+{
+  "*.{ts,tsx}": [
+    "prettier --write",
+    "eslint --fix",
+    "bash -c 'pnpm -r run typecheck'"
+  ],
+  "*.{js,jsx,mjs,cjs}": [
+    "prettier --write",
+    "eslint --fix"
+  ],
+  "*.{json,md,yaml,yml,css,html}": [
+    "prettier --write"
+  ]
+}

@@ -1,0 +1,7 @@
+node_modules
+dist
+backup
+.wrangler
+pnpm-lock.yaml
+*.min.js
+*.min.css
