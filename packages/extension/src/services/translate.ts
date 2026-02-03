@@ -1,14 +1,17 @@
 /**
  * Translation Service
  * Connects to the AI Translation Agent backend
+ * Includes user-configured API keys for LLM translation
  */
+
+import Storage, { ModelProvider, UserApiKeys } from './storage'
 
 // Backend API configuration - uses Vite's define or falls back to env check
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:8787' : 'https://webtrans-api.your-domain.workers.dev')
 
-export type ModelProvider = 'openai' | 'claude' | 'deepseek'
+export type { ModelProvider, UserApiKeys }
 
 export interface PageContext {
   type: 'technical' | 'news' | 'academic' | 'casual' | 'legal' | 'medical' | 'general'
@@ -25,6 +28,7 @@ export interface TranslateRequest {
   targetLanguage: string
   context?: PageContext
   model?: ModelProvider
+  modelId?: string
   useCache?: boolean
   useMemory?: boolean
 }
@@ -35,6 +39,22 @@ export interface TranslateResponse {
   targetLanguage: string
   model?: string
   cached?: boolean
+}
+
+export interface DualTranslateResponse {
+  machine: {
+    translatedText: string | null
+    provider: string | null
+    error?: string
+  }
+  llm: {
+    translatedText: string | null
+    model: string | null
+    error?: string
+    available: boolean
+  }
+  sourceLanguage: string
+  targetLanguage: string
 }
 
 export interface BatchTranslateRequest {
@@ -76,6 +96,21 @@ export interface ApiResponse<T> {
     tokensUsed?: number
     processingTime?: number
   }
+}
+
+/**
+ * Get user's API keys and selected model from storage
+ */
+async function getUserConfig(): Promise<{
+  apiKeys: UserApiKeys
+  provider: ModelProvider | null
+  model: string | null
+}> {
+  const [apiKeys, { provider, model }] = await Promise.all([
+    Storage.getApiKeys(),
+    Storage.getSelectedModel(),
+  ])
+  return { apiKeys, provider, model }
 }
 
 /**
@@ -132,7 +167,7 @@ export async function detectLanguage(text: string): Promise<DetectLanguageRespon
 }
 
 /**
- * Translate a single text
+ * Translate a single text using user-configured API keys
  */
 export async function translate(request: TranslateRequest): Promise<TranslateResponse> {
   const {
@@ -141,9 +176,13 @@ export async function translate(request: TranslateRequest): Promise<TranslateRes
     sourceLanguage,
     context,
     model,
+    modelId,
     useCache = true,
     useMemory = true,
   } = request
+
+  // Get user's API keys
+  const { apiKeys, provider, model: selectedModel } = await getUserConfig()
 
   try {
     const result = await apiRequest<{
@@ -157,7 +196,9 @@ export async function translate(request: TranslateRequest): Promise<TranslateRes
       targetLang: targetLanguage,
       sourceLang: sourceLanguage,
       context,
-      model,
+      model: model || provider,
+      modelId: modelId || selectedModel,
+      apiKeys,
       useCache,
       useMemory,
     })
@@ -181,13 +222,77 @@ export async function translate(request: TranslateRequest): Promise<TranslateRes
 }
 
 /**
+ * Dual translate - returns both machine translation and LLM translation
+ * Machine translation is fast (free APIs), LLM is slower but higher quality
+ * LLM uses user-configured API keys
+ */
+export async function dualTranslate(request: TranslateRequest): Promise<DualTranslateResponse> {
+  const { text, targetLanguage, sourceLanguage, context, model, modelId } = request
+
+  // Get user's API keys
+  const { apiKeys, provider, model: selectedModel } = await getUserConfig()
+
+  try {
+    const result = await apiRequest<{
+      machine: {
+        translatedText: string | null
+        provider: string | null
+        error?: string
+      }
+      llm: {
+        translatedText: string | null
+        model: string | null
+        error?: string
+        available: boolean
+      }
+      sourceLang: string
+      targetLang: string
+    }>('/api/translate/dual', 'POST', {
+      text,
+      targetLang: targetLanguage,
+      sourceLang: sourceLanguage,
+      context,
+      model: model || provider,
+      modelId: modelId || selectedModel,
+      apiKeys,
+    })
+
+    return {
+      machine: result.machine,
+      llm: result.llm,
+      sourceLanguage: result.sourceLang,
+      targetLanguage: result.targetLang,
+    }
+  } catch (error) {
+    console.error('Dual translation API error:', error)
+    // Return fallback with error
+    return {
+      machine: {
+        translatedText: null,
+        provider: null,
+        error: error instanceof Error ? error.message : 'Translation failed',
+      },
+      llm: {
+        translatedText: null,
+        model: null,
+        available: false,
+      },
+      sourceLanguage: sourceLanguage || 'unknown',
+      targetLanguage,
+    }
+  }
+}
+
+/**
  * Batch translate multiple texts
- * Used for web page translation
  */
 export async function batchTranslate(
   request: BatchTranslateRequest
 ): Promise<BatchTranslateResponse> {
   const { texts, targetLanguage, sourceLanguage, context, model } = request
+
+  // Get user's API keys
+  const { apiKeys, provider } = await getUserConfig()
 
   try {
     const result = await apiRequest<{
@@ -201,7 +306,8 @@ export async function batchTranslate(
       targetLang: targetLanguage,
       sourceLang: sourceLanguage,
       context,
-      model,
+      model: model || provider,
+      apiKeys,
     })
 
     return {
@@ -213,7 +319,7 @@ export async function batchTranslate(
     }
   } catch (error) {
     console.error('Batch translation API error:', error)
-    // Return fallback
+    // Return original texts as fallback
     return {
       translations: texts.map((t) => `[Translation pending] ${t}`),
       sourceLanguage: sourceLanguage || 'unknown',
@@ -223,71 +329,99 @@ export async function batchTranslate(
 }
 
 /**
- * Translation API for web page translation
- * Matches the format expected by the webpage-translation module
+ * Free translation (no API key required)
+ */
+export async function freeTranslate(
+  text: string,
+  targetLanguage: string,
+  sourceLanguage?: string
+): Promise<TranslateResponse> {
+  try {
+    const result = await apiRequest<{
+      translatedText: string
+      sourceLang: string
+      targetLang: string
+      provider: string
+    }>('/api/translate/free', 'POST', {
+      text,
+      targetLang: targetLanguage,
+      sourceLang: sourceLanguage,
+    })
+
+    return {
+      translatedText: result.translatedText,
+      sourceLanguage: result.sourceLang,
+      targetLanguage: result.targetLang,
+      model: result.provider,
+    }
+  } catch (error) {
+    console.error('Free translation API error:', error)
+    return {
+      translatedText: `[Translation pending] ${text}`,
+      sourceLanguage: sourceLanguage || 'unknown',
+      targetLanguage,
+    }
+  }
+}
+
+/**
+ * Request web page translation (batch translation for page texts)
  */
 export async function requestWebPageTranslation(
-  textList: string[],
-  sourceLanguage: string = 'detect',
-  targetLanguage: string = 'zh'
-): Promise<{ translations: string[] }> {
-  const result = await batchTranslate({
-    texts: textList,
-    sourceLanguage: sourceLanguage === 'detect' ? undefined : sourceLanguage,
+  texts: string[],
+  sourceLanguage: string,
+  targetLanguage: string
+): Promise<BatchTranslateResponse> {
+  return batchTranslate({
+    texts,
+    sourceLanguage,
     targetLanguage,
   })
-
-  return { translations: result.translations }
 }
 
 /**
- * Analyze page context for better translations
+ * Analyze page context
  */
-export async function analyzeContext(
-  content: string,
-  url?: string,
-  title?: string
-): Promise<PageContext> {
+export async function analyzeContext(content: string, url?: string): Promise<PageContext> {
   try {
-    const result = await apiRequest<{ context: PageContext }>('/api/context', 'POST', {
-      content,
-      url,
-      title,
-    })
+    const result = await apiRequest<{
+      context: PageContext
+      confidence: number
+    }>('/api/context', 'POST', { content, url })
+
     return result.context
-  } catch (error) {
-    console.error('Context analysis error:', error)
-    // Quick fallback using URL heuristics
-    return quickContextDetection(url, title)
+  } catch (_error) {
+    // Return default context
+    return {
+      type: 'general',
+      tone: 'neutral',
+    }
   }
 }
 
 /**
- * Quick context detection (local, no API call)
+ * Quick context detection (local, fast)
  */
-export function quickContextDetection(url?: string, title?: string): PageContext {
-  const urlLower = url?.toLowerCase() || ''
-  const titleLower = title?.toLowerCase() || ''
-  const combined = urlLower + ' ' + titleLower
+export async function quickContextDetection(content: string): Promise<PageContext> {
+  // Simple heuristic-based context detection
+  const technicalTerms = ['function', 'const', 'let', 'var', 'class', 'API', 'npm', 'git']
+  const newsTerms = ['breaking', 'report', 'today', 'announced', 'officials']
+  const academicTerms = ['study', 'research', 'analysis', 'methodology', 'hypothesis']
 
-  if (
-    combined.includes('github') ||
-    combined.includes('stackoverflow') ||
-    combined.includes('docs.')
-  ) {
-    return { type: 'technical', tone: 'formal' }
-  }
-  if (combined.includes('news') || combined.includes('bbc') || combined.includes('cnn')) {
-    return { type: 'news', tone: 'formal' }
-  }
-  if (combined.includes('arxiv') || combined.includes('scholar') || combined.includes('.edu')) {
-    return { type: 'academic', tone: 'formal' }
-  }
-  if (combined.includes('twitter') || combined.includes('reddit') || combined.includes('blog')) {
-    return { type: 'casual', tone: 'informal' }
-  }
+  const words = content.toLowerCase().split(/\s+/)
+  const technicalCount = words.filter((w) => technicalTerms.includes(w)).length
+  const newsCount = words.filter((w) => newsTerms.includes(w)).length
+  const academicCount = words.filter((w) => academicTerms.includes(w)).length
 
-  return { type: 'general', tone: 'neutral' }
+  let type: PageContext['type'] = 'general'
+  if (technicalCount > 5) type = 'technical'
+  else if (newsCount > 3) type = 'news'
+  else if (academicCount > 3) type = 'academic'
+
+  return {
+    type,
+    tone: 'neutral',
+  }
 }
 
 /**
@@ -295,21 +429,22 @@ export function quickContextDetection(url?: string, title?: string): PageContext
  */
 export async function summarizeContent(
   text: string,
-  targetLang?: string
+  targetLanguage?: string
 ): Promise<SummaryResponse> {
+  const { apiKeys, provider, model } = await getUserConfig()
+
   try {
     const result = await apiRequest<SummaryResponse>('/api/summary', 'POST', {
       text,
-      targetLang,
-      includeKeyPoints: true,
+      targetLang: targetLanguage,
+      apiKeys,
+      model: provider,
+      modelId: model,
     })
     return result
-  } catch (error) {
-    console.error('Summary API error:', error)
-    // Return basic fallback
-    const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0)
+  } catch (_error) {
     return {
-      summary: sentences.slice(0, 3).join('. ').trim() || 'Summary unavailable',
+      summary: text.slice(0, 200) + '...',
       keyPoints: [],
       estimatedReadTime: Math.ceil(text.split(/\s+/).length / 200),
     }
@@ -317,35 +452,39 @@ export async function summarizeContent(
 }
 
 /**
- * Get translation memory statistics
+ * Get translation memory stats
  */
 export async function getMemoryStats(): Promise<{
   totalEntries: number
-  totalUses: number
-  languagePairs: number
+  languages: string[]
+  recentTranslations: number
 }> {
   try {
-    const result = await apiRequest<{
-      totalEntries: number
-      totalUses: number
-      languagePairs: number
-    }>('/api/memory/stats', 'GET')
-    return result
-  } catch (error) {
-    console.error('Memory stats error:', error)
-    return { totalEntries: 0, totalUses: 0, languagePairs: 0 }
+    return await apiRequest('/api/memory/stats', 'GET')
+  } catch (_error) {
+    return {
+      totalEntries: 0,
+      languages: [],
+      recentTranslations: 0,
+    }
   }
 }
 
 /**
- * Rate a translation quality (saves to memory)
+ * Rate a translation for quality feedback
  */
-export async function rateTranslation(memoryId: number, score: number): Promise<boolean> {
+export async function rateTranslation(
+  sourceText: string,
+  translatedText: string,
+  rating: number
+): Promise<void> {
   try {
-    await apiRequest(`/api/memory/${memoryId}/quality`, 'PUT', { score })
-    return true
+    await apiRequest('/api/memory/rate', 'POST', {
+      sourceText,
+      translatedText,
+      rating,
+    })
   } catch (error) {
-    console.error('Rate translation error:', error)
-    return false
+    console.error('Failed to rate translation:', error)
   }
 }

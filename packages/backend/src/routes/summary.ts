@@ -3,7 +3,7 @@
  */
 
 import { Hono } from 'hono'
-import type { Env, SummaryRequest, ApiResponse, SummaryResponse } from '../types'
+import type { Env, SummaryRequest, ApiResponse, SummaryResponse, UserApiKeys } from '../types'
 import { summarizeText, summarizeDocument, progressiveSummarize } from '../agents/summarizer'
 
 export const summaryRoute = new Hono<{ Bindings: Env }>()
@@ -17,7 +17,7 @@ summaryRoute.post('/', async (c) => {
 
   try {
     const body = await c.req.json<SummaryRequest>()
-    const { text, targetLang, maxLength, includeKeyPoints = true } = body
+    const { text, targetLang, maxLength, includeKeyPoints = true, apiKeys = {}, model } = body
 
     if (!text) {
       return c.json<ApiResponse<null>>(
@@ -33,6 +33,7 @@ summaryRoute.post('/', async (c) => {
       targetLang,
       maxLength,
       includeKeyPoints,
+      apiKeys,
     })
 
     return c.json<ApiResponse<SummaryResponse>>({
@@ -40,6 +41,7 @@ summaryRoute.post('/', async (c) => {
       data: result,
       meta: {
         processingTime: Date.now() - startTime,
+        model: model,
       },
     })
   } catch (error) {
@@ -66,8 +68,9 @@ summaryRoute.post('/document', async (c) => {
       title: string
       content: string
       targetLang?: string
+      apiKeys?: UserApiKeys
     }>()
-    const { title, content, targetLang } = body
+    const { title, content, targetLang, apiKeys = {} } = body
 
     if (!title || !content) {
       return c.json<ApiResponse<null>>(
@@ -79,7 +82,7 @@ summaryRoute.post('/document', async (c) => {
       )
     }
 
-    const result = await summarizeDocument(c.env, title, content, targetLang)
+    const result = await summarizeDocument(c.env, title, content, apiKeys, targetLang)
 
     return c.json<ApiResponse<typeof result>>({
       success: true,
@@ -111,8 +114,9 @@ summaryRoute.post('/progressive', async (c) => {
     const body = await c.req.json<{
       content: string
       targetLang?: string
+      apiKeys?: UserApiKeys
     }>()
-    const { content, targetLang } = body
+    const { content, targetLang, apiKeys = {} } = body
 
     if (!content) {
       return c.json<ApiResponse<null>>(
@@ -130,6 +134,7 @@ summaryRoute.post('/progressive', async (c) => {
       const result = await summarizeText(c.env, content, {
         targetLang,
         includeKeyPoints: true,
+        apiKeys,
       })
       return c.json<ApiResponse<SummaryResponse>>({
         success: true,
@@ -140,7 +145,7 @@ summaryRoute.post('/progressive', async (c) => {
       })
     }
 
-    const result = await progressiveSummarize(c.env, content, targetLang)
+    const result = await progressiveSummarize(c.env, content, apiKeys, targetLang)
 
     return c.json<ApiResponse<SummaryResponse>>({
       success: true,

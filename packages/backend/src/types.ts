@@ -2,7 +2,30 @@
  * Type definitions for the AI Translation Agent
  */
 
-// Environment bindings
+// All supported model providers
+export type ModelProvider =
+  | 'openai'
+  | 'claude'
+  | 'deepseek'
+  | 'gemini'
+  | 'qwen'
+  | 'moonshot'
+  | 'zhipu'
+  | 'groq'
+
+// User-provided API keys (from frontend settings)
+export interface UserApiKeys {
+  openai?: string
+  claude?: string
+  deepseek?: string
+  gemini?: string
+  qwen?: string
+  moonshot?: string
+  zhipu?: string
+  groq?: string
+}
+
+// Environment bindings (optional now, user keys take priority)
 export interface Env {
   // KV Namespace
   TRANSLATION_CACHE: KVNamespace
@@ -10,18 +33,20 @@ export interface Env {
   // D1 Database
   DB: D1Database
 
-  // API Keys (secrets)
-  OPENAI_API_KEY: string
-  ANTHROPIC_API_KEY: string
-  DEEPSEEK_API_KEY: string
+  // API Keys (secrets) - optional fallback, user keys preferred
+  OPENAI_API_KEY?: string
+  ANTHROPIC_API_KEY?: string
+  DEEPSEEK_API_KEY?: string
+  GOOGLE_API_KEY?: string
+  DASHSCOPE_API_KEY?: string
+  MOONSHOT_API_KEY?: string
+  ZHIPU_API_KEY?: string
+  GROQ_API_KEY?: string
 
   // Configuration
-  DEFAULT_MODEL: string
-  CORS_ORIGIN: string
+  DEFAULT_MODEL?: string
+  CORS_ORIGIN?: string
 }
-
-// Model provider types
-export type ModelProvider = 'openai' | 'claude' | 'deepseek'
 
 export interface ModelConfig {
   provider: ModelProvider
@@ -39,6 +64,8 @@ export interface TranslateRequest {
   sourceLang?: string
   context?: PageContext
   model?: ModelProvider
+  modelId?: string // Specific model ID (e.g., 'gpt-4o-mini')
+  apiKeys?: UserApiKeys // User-provided API keys
   useCache?: boolean
   useMemory?: boolean
 }
@@ -60,6 +87,7 @@ export interface BatchTranslateRequest {
   sourceLang?: string
   context?: PageContext
   model?: ModelProvider
+  apiKeys?: UserApiKeys
 }
 
 export interface BatchTranslateResponse {
@@ -86,6 +114,8 @@ export interface SummaryRequest {
   targetLang?: string
   maxLength?: number
   includeKeyPoints?: boolean
+  apiKeys?: UserApiKeys
+  model?: ModelProvider
 }
 
 export interface SummaryResponse {
@@ -142,6 +172,8 @@ export interface ApiResponse<T> {
     model?: string
     tokensUsed?: number
     processingTime?: number
+    llmConfigured?: boolean
+    free?: boolean
   }
 }
 

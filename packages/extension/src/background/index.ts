@@ -3,7 +3,7 @@
  * Handles message passing, context menus, and storage management
  */
 
-import { translate, detectLanguage, batchTranslate } from '@/services/translate'
+import { translate, dualTranslate, detectLanguage, batchTranslate } from '@/services/translate'
 import Storage from '@/services/storage'
 import { MessageType } from '@/types/messages'
 
@@ -77,7 +77,19 @@ async function handleMessage(message: { type: MessageType; args?: Record<string,
 
   switch (type) {
     case MessageType.TRANSLATE: {
-      const { text, targetLanguage } = args as { text: string; targetLanguage: string }
+      const { text, targetLanguage, dual } = args as {
+        text: string
+        targetLanguage: string
+        dual?: boolean
+      }
+      console.log('[MeiTrans BG] Translate request, dual:', dual, 'text:', text.substring(0, 30))
+      // Use dual translation if requested
+      if (dual) {
+        console.log('[MeiTrans BG] Using dualTranslate')
+        const result = await dualTranslate({ text, targetLanguage })
+        console.log('[MeiTrans BG] dualTranslate result:', result)
+        return result
+      }
       return translate({ text, targetLanguage })
     }
 

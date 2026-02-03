@@ -296,6 +296,57 @@ function getStyles(): string {
       border: 1px solid #fecaca;
     }
 
+    .result-error-inline {
+      padding: 8px 12px;
+      background: #fef2f2;
+      border-radius: 8px;
+      color: #dc2626;
+      font-size: 12px;
+      border: 1px solid #fecaca;
+    }
+
+    .result-provider {
+      font-weight: 400;
+      color: #a1a1aa;
+      margin-left: 4px;
+      font-size: 9px;
+    }
+
+    .result-llm {
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border: 1px solid #a7f3d0;
+    }
+
+    .result-hint {
+      padding: 10px 12px;
+      background: #fffbeb;
+      border-radius: 8px;
+      color: #92400e;
+      font-size: 11px;
+      border: 1px solid #fde68a;
+      margin-top: 12px;
+    }
+
+    .result-loading-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .loading-spinner-small {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #e2e8f0;
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }

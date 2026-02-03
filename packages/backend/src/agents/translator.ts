@@ -1,10 +1,18 @@
 /**
  * Translation Agent
  * Handles translation with context awareness and smart model routing
+ * Supports user-provided API keys
  */
 
-import type { Env, ModelProvider, PageContext, ChatMessage, LLMResponse } from '../types'
-import { getProvider, selectBestModel } from '../providers'
+import type {
+  Env,
+  ModelProvider,
+  PageContext,
+  ChatMessage,
+  LLMResponse,
+  UserApiKeys,
+} from '../types'
+import { getProviderWithKey, getFirstAvailableProvider, PROVIDER_CONFIG } from '../providers'
 import { getCachedTranslation, setCachedTranslation, getBatchCached } from '../utils/cache'
 import { hashText } from '../utils/hash'
 
@@ -19,7 +27,6 @@ export interface TranslationResult {
 
 /**
  * Detect language of text using simple heuristics
- * For production, you might want to use an LLM or dedicated service
  */
 export function detectLanguage(text: string): string {
   // Check for Chinese characters
@@ -91,16 +98,18 @@ Rules:
 }
 
 /**
- * Translate a single text
+ * Translate with user-provided API keys
  */
-export async function translateText(
+export async function translateWithUserKeys(
   env: Env,
   text: string,
   targetLang: string,
+  apiKeys: UserApiKeys,
   options: {
     sourceLang?: string
     context?: PageContext
     model?: ModelProvider
+    modelId?: string
     useCache?: boolean
     useMemory?: boolean
   } = {}
@@ -109,6 +118,7 @@ export async function translateText(
     sourceLang = detectLanguage(text),
     context,
     model: preferredModel,
+    modelId,
     useCache = true,
   } = options
 
@@ -118,7 +128,7 @@ export async function translateText(
       translatedText: text,
       sourceLang,
       targetLang,
-      model: 'deepseek',
+      model: preferredModel || 'openai',
       cached: false,
       tokensUsed: 0,
     }
@@ -139,17 +149,39 @@ export async function translateText(
     }
   }
 
-  // Select best model
-  const selectedModel = selectBestModel(sourceLang, targetLang, context, preferredModel)
+  // Get the provider and API key to use
+  let selectedProvider: ModelProvider
+  let apiKey: string
+
+  if (preferredModel && apiKeys[preferredModel]) {
+    // User specified a model and has the key
+    selectedProvider = preferredModel
+    apiKey = apiKeys[preferredModel]!
+  } else {
+    // Auto-select based on available keys
+    const available = getFirstAvailableProvider(apiKeys)
+    if (!available) {
+      throw new Error('No API key configured')
+    }
+    selectedProvider = available.provider
+    apiKey = available.apiKey
+  }
+
+  console.log(`[Translator] Using provider: ${selectedProvider}`)
 
   // Build prompt
   const messages = buildTranslationPrompt(text, targetLang, sourceLang, context)
 
-  // Get provider and translate
-  const provider = getProvider(selectedModel, env)
+  // Get provider instance and translate
+  const provider = getProviderWithKey(selectedProvider, apiKey)
+
+  // Use specific model if provided, otherwise use provider default
+  const specificModel = modelId || PROVIDER_CONFIG[selectedProvider].defaultModel
+
   const response: LLMResponse = await provider.chat(messages, {
     temperature: 0.3,
     maxTokens: Math.max(text.length * 3, 1000),
+    model: specificModel,
   })
 
   const translatedText = response.content.trim()
@@ -162,7 +194,7 @@ export async function translateText(
       sourceLang,
       targetLang,
       translatedText,
-      selectedModel,
+      selectedProvider,
       context?.type
     )
   }
@@ -171,19 +203,20 @@ export async function translateText(
     translatedText,
     sourceLang,
     targetLang,
-    model: selectedModel,
+    model: selectedProvider,
     cached: false,
     tokensUsed: response.tokensUsed.total,
   }
 }
 
 /**
- * Batch translate multiple texts
+ * Batch translate multiple texts with user API keys
  */
 export async function translateBatch(
   env: Env,
   texts: string[],
   targetLang: string,
+  apiKeys: UserApiKeys,
   options: {
     sourceLang?: string
     context?: PageContext
@@ -192,6 +225,8 @@ export async function translateBatch(
   } = {}
 ): Promise<{
   translations: string[]
+  sourceLang: string
+  targetLang: string
   model: ModelProvider
   cachedCount: number
   tokensUsed: number
@@ -210,15 +245,27 @@ export async function translateBatch(
   // Find texts that need translation
   const textsToTranslate = texts.filter((t) => !cachedResults.has(t))
 
-  // Select model
-  const selectedModel = selectBestModel(sourceLang, targetLang, context, preferredModel)
+  // Get provider and API key
+  let selectedProvider: ModelProvider
+  let apiKey: string
+
+  if (preferredModel && apiKeys[preferredModel]) {
+    selectedProvider = preferredModel
+    apiKey = apiKeys[preferredModel]!
+  } else {
+    const available = getFirstAvailableProvider(apiKeys)
+    if (!available) {
+      throw new Error('No API key configured')
+    }
+    selectedProvider = available.provider
+    apiKey = available.apiKey
+  }
 
   let totalTokens = 0
   const newTranslations = new Map<string, string>()
 
   // Translate uncached texts in batches
   if (textsToTranslate.length > 0) {
-    // For batch, we combine texts with markers for efficiency
     const BATCH_SIZE = 20
     const batches: string[][] = []
 
@@ -233,7 +280,7 @@ export async function translateBatch(
       const batchPrompt = buildTranslationPrompt(numberedTexts, targetLang, sourceLang, context)
       batchPrompt[0].content += `\n\nYou will receive multiple texts marked with [number]. Translate each one and keep the [number] markers in your response.`
 
-      const provider = getProvider(selectedModel, env)
+      const provider = getProviderWithKey(selectedProvider, apiKey)
       const response = await provider.chat(batchPrompt, {
         temperature: 0.3,
         maxTokens: Math.max(numberedTexts.length * 2, 2000),
@@ -256,7 +303,7 @@ export async function translateBatch(
             sourceLang,
             targetLang,
             translated,
-            selectedModel,
+            selectedProvider,
             context?.type
           )
         }
@@ -273,7 +320,9 @@ export async function translateBatch(
 
   return {
     translations,
-    model: selectedModel,
+    sourceLang,
+    targetLang,
+    model: selectedProvider,
     cachedCount: cachedResults.size,
     tokensUsed: totalTokens,
   }
@@ -296,11 +345,11 @@ export async function saveToMemory(
 
     await env.DB.prepare(
       `
-      INSERT INTO translation_memory 
+      INSERT INTO translation_memory
         (source_hash, source_text, target_text, source_lang, target_lang, context_type, model_used)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(source_hash, source_lang, target_lang) 
-      DO UPDATE SET 
+      ON CONFLICT(source_hash, source_lang, target_lang)
+      DO UPDATE SET
         target_text = excluded.target_text,
         use_count = use_count + 1,
         updated_at = CURRENT_TIMESTAMP

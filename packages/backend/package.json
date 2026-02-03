@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "./dev-no-proxy.sh",
+    "dev:proxy": "wrangler dev",
     "build": "wrangler deploy --dry-run --outdir=dist",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",

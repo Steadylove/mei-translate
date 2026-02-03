@@ -1,10 +1,11 @@
 /**
  * Selection Translation Component
  * Shows a translate button on text selection, then displays translation result
+ * Supports dual translation: machine (fast) + LLM (high quality)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useTranslate } from '@/hooks/useTranslate'
+import { useTranslate, DualTranslationResult } from '@/hooks/useTranslate'
 import { getShadowRoot } from '../index'
 
 interface SelectTransProps {
@@ -18,16 +19,17 @@ type State = 'button' | 'loading' | 'result'
 
 const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguage, onClose }) => {
   const [state, setState] = useState<State>('button')
-  const { translate, isLoading, result, error } = useTranslate()
+  const { dualTranslate, isLoading, error } = useTranslate()
+  const [dualResult, setDualResult] = useState<DualTranslationResult | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panelPosition, setPanelPosition] = useState(position)
-  const [copied, setCopied] = useState<'original' | 'translation' | null>(null)
+  const [copied, setCopied] = useState<'original' | 'machine' | 'llm' | null>(null)
 
   // Calculate safe position for the panel
   const calculatePosition = useCallback(() => {
     const padding = 16
-    const panelWidth = 380
-    const panelHeight = 240
+    const panelWidth = 420
+    const panelHeight = 320
     const buttonSize = 40
 
     let x = position.x + 10
@@ -54,10 +56,19 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
   }, [calculatePosition])
 
   const handleTranslate = useCallback(async () => {
+    console.log('[MeiTrans] Translate button clicked, text:', text.substring(0, 50))
     setState('loading')
-    await translate(text, targetLanguage)
+    try {
+      const result = await dualTranslate(text, targetLanguage)
+      console.log('[MeiTrans] Translation result:', result)
+      if (result) {
+        setDualResult(result)
+      }
+    } catch (err) {
+      console.error('[MeiTrans] Translation error:', err)
+    }
     setState('result')
-  }, [text, targetLanguage, translate])
+  }, [text, targetLanguage, dualTranslate])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -93,15 +104,48 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     }
   }, [onClose])
 
-  const handleCopy = useCallback(async (textToCopy: string, type: 'original' | 'translation') => {
-    try {
-      await navigator.clipboard.writeText(textToCopy)
-      setCopied(type)
-      setTimeout(() => setCopied(null), 1500)
-    } catch (err) {
-      console.error('Failed to copy:', err)
-    }
-  }, [])
+  const handleCopy = useCallback(
+    async (textToCopy: string, type: 'original' | 'machine' | 'llm') => {
+      try {
+        await navigator.clipboard.writeText(textToCopy)
+        setCopied(type)
+        setTimeout(() => setCopied(null), 1500)
+      } catch (err) {
+        console.error('Failed to copy:', err)
+      }
+    },
+    []
+  )
+
+  // Copy button component
+  const CopyButton = ({ onClick, isCopied }: { onClick: () => void; isCopied: boolean }) => (
+    <button className="result-copy" onClick={onClick} title="Copy">
+      {isCopied ? (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#10b981"
+          strokeWidth="2.5"
+        >
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      ) : (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <rect x="9" y="9" width="13" height="13" rx="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+      )}
+    </button>
+  )
 
   // Render translate button
   if (state === 'button') {
@@ -131,6 +175,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
       style={{
         left: `${panelPosition.x}px`,
         top: `${panelPosition.y}px`,
+        maxWidth: '420px',
       }}
     >
       <div className="result-header">
@@ -154,85 +199,81 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
         {isLoading ? (
           <div className="result-loading">
             <div className="loading-spinner" />
-            <span className="loading-text">Translating with AI...</span>
+            <span className="loading-text">Translating...</span>
           </div>
         ) : error ? (
           <div className="result-error">{error}</div>
-        ) : result ? (
+        ) : dualResult ? (
           <>
+            {/* Original Text */}
             <div className="result-section">
               <div className="result-section-header">
                 <span className="result-label">Original</span>
-                <button
-                  className="result-copy"
+                <CopyButton
                   onClick={() => handleCopy(text, 'original')}
-                  title="Copy"
-                >
-                  {copied === 'original' ? (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="2.5"
-                    >
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <rect x="9" y="9" width="13" height="13" rx="2" />
-                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                    </svg>
-                  )}
-                </button>
+                  isCopied={copied === 'original'}
+                />
               </div>
               <div className="result-original">{text}</div>
             </div>
 
-            <div className="result-section">
-              <div className="result-section-header">
-                <span className="result-label">Translation</span>
-                <button
-                  className="result-copy"
-                  onClick={() => handleCopy(result.translatedText, 'translation')}
-                  title="Copy"
-                >
-                  {copied === 'translation' ? (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="2.5"
-                    >
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <rect x="9" y="9" width="13" height="13" rx="2" />
-                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                    </svg>
-                  )}
-                </button>
+            {/* Machine Translation - Always show if available */}
+            {dualResult.machine.translatedText && (
+              <div className="result-section">
+                <div className="result-section-header">
+                  <span className="result-label">
+                    ⚡ Machine
+                    {dualResult.machine.provider && (
+                      <span className="result-provider">({dualResult.machine.provider})</span>
+                    )}
+                  </span>
+                  <CopyButton
+                    onClick={() => handleCopy(dualResult.machine.translatedText!, 'machine')}
+                    isCopied={copied === 'machine'}
+                  />
+                </div>
+                <div className="result-translated">{dualResult.machine.translatedText}</div>
               </div>
-              <div className="result-translated">{result.translatedText}</div>
-            </div>
+            )}
+
+            {/* LLM Translation - Show if available and configured */}
+            {dualResult.llm.available && (
+              <div className="result-section">
+                <div className="result-section-header">
+                  <span className="result-label">
+                    ✨ AI
+                    {dualResult.llm.model && (
+                      <span className="result-provider">({dualResult.llm.model})</span>
+                    )}
+                  </span>
+                  {dualResult.llm.translatedText && (
+                    <CopyButton
+                      onClick={() => handleCopy(dualResult.llm.translatedText!, 'llm')}
+                      isCopied={copied === 'llm'}
+                    />
+                  )}
+                </div>
+                {dualResult.llm.translatedText ? (
+                  <div className="result-translated result-llm">
+                    {dualResult.llm.translatedText}
+                  </div>
+                ) : dualResult.llm.error ? (
+                  <div className="result-error-inline">{dualResult.llm.error}</div>
+                ) : (
+                  <div className="result-loading-inline">
+                    <div className="loading-spinner-small" />
+                    <span>AI translating...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Show message if LLM not configured */}
+            {!dualResult.llm.available && (
+              <div className="result-hint">
+                💡 Configure LLM API key in settings for higher quality AI translation
+              </div>
+            )}
           </>
         ) : null}
       </div>

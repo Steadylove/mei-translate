@@ -3,8 +3,8 @@
  * Analyzes webpage content to determine context for better translations
  */
 
-import type { Env, PageContext, ContextAnalysisResponse, ChatMessage } from '../types'
-import { getProvider } from '../providers'
+import type { Env, PageContext, ContextAnalysisResponse, ChatMessage, UserApiKeys } from '../types'
+import { getProviderWithKey, getFirstAvailableProvider } from '../providers'
 import { hashText } from '../utils/hash'
 
 // Cache context analysis for 24 hours
@@ -16,6 +16,7 @@ const CONTEXT_CACHE_TTL = 60 * 60 * 24
 export async function analyzeContext(
   env: Env,
   content: string,
+  apiKeys: UserApiKeys,
   url?: string,
   title?: string
 ): Promise<ContextAnalysisResponse> {
@@ -24,6 +25,16 @@ export async function analyzeContext(
     const cached = await getCachedContext(env, url)
     if (cached) {
       return cached
+    }
+  }
+
+  // Check if user has API keys configured
+  const available = getFirstAvailableProvider(apiKeys)
+  if (!available) {
+    // Return default context if no API key
+    return {
+      context: quickContextDetection(url, title) as PageContext,
+      confidence: 0.5,
     }
   }
 
@@ -61,8 +72,7 @@ Include 3-5 key terminology hints that would benefit from consistent translation
   ]
 
   try {
-    // Use DeepSeek for analysis (fast and cheap)
-    const provider = getProvider('deepseek', env)
+    const provider = getProviderWithKey(available.provider, available.apiKey)
     const response = await provider.chat(messages, {
       temperature: 0.2,
       maxTokens: 500,
@@ -256,7 +266,7 @@ async function cacheContext(
 
     await env.DB.prepare(
       `
-      INSERT INTO context_cache 
+      INSERT INTO context_cache
         (url_hash, url, context_type, domain, tone, terminology_hints, confidence, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(url_hash) DO UPDATE SET

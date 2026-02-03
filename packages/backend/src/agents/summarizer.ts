@@ -3,15 +3,16 @@
  * Generates intelligent summaries and optional translations
  */
 
-import type { Env, SummaryResponse, SectionSummary, ChatMessage } from '../types'
-import { getProvider } from '../providers'
-import { translateText } from './translator'
+import type { Env, SummaryResponse, SectionSummary, ChatMessage, UserApiKeys } from '../types'
+import { getProviderWithKey, getFirstAvailableProvider } from '../providers'
+import { translateWithUserKeys } from './translator'
 
 export interface SummarizeOptions {
   targetLang?: string
   maxLength?: number
   includeKeyPoints?: boolean
   includeSections?: boolean
+  apiKeys?: UserApiKeys
 }
 
 /**
@@ -27,11 +28,26 @@ export async function summarizeText(
     maxLength = 500,
     includeKeyPoints: _includeKeyPoints = true,
     includeSections = false,
+    apiKeys = {},
   } = options
 
   // Estimate reading time (average 200 words per minute)
   const wordCount = text.split(/\s+/).length
   const estimatedReadTime = Math.ceil(wordCount / 200)
+
+  // Check if user has API keys configured
+  const available = getFirstAvailableProvider(apiKeys)
+  if (!available) {
+    // Return basic summary without LLM
+    const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0)
+    const basicSummary = sentences.slice(0, 3).join('. ').trim()
+
+    return {
+      summary: basicSummary || 'Summary unavailable (no API key configured)',
+      keyPoints: [],
+      estimatedReadTime,
+    }
+  }
 
   const systemPrompt = `You are an expert content summarizer. Create a concise summary of the following text.
 
@@ -60,8 +76,7 @@ Guidelines:
   ]
 
   try {
-    // Use DeepSeek for summarization
-    const provider = getProvider('deepseek', env)
+    const provider = getProviderWithKey(available.provider, available.apiKey)
     const response = await provider.chat(messages, {
       temperature: 0.3,
       maxTokens: 1000,
@@ -87,17 +102,25 @@ Guidelines:
     }
 
     // Translate if target language specified
-    if (targetLang) {
+    if (targetLang && Object.keys(apiKeys).length > 0) {
       // Translate summary
-      const translatedSummary = await translateText(env, result.summary, targetLang, {
-        useCache: true,
-      })
+      const translatedSummary = await translateWithUserKeys(
+        env,
+        result.summary,
+        targetLang,
+        apiKeys,
+        {
+          useCache: true,
+        }
+      )
       result.summaryTranslated = translatedSummary.translatedText
 
       // Translate key points
       if (result.keyPoints.length > 0) {
         const translatedPoints = await Promise.all(
-          result.keyPoints.map((point) => translateText(env, point, targetLang, { useCache: true }))
+          result.keyPoints.map((point) =>
+            translateWithUserKeys(env, point, targetLang, apiKeys, { useCache: true })
+          )
         )
         result.keyPointsTranslated = translatedPoints.map((r) => r.translatedText)
       }
@@ -127,6 +150,7 @@ export async function summarizeDocument(
   env: Env,
   title: string,
   content: string,
+  apiKeys: UserApiKeys = {},
   targetLang?: string
 ): Promise<{
   title: string
@@ -143,12 +167,13 @@ export async function summarizeDocument(
     includeKeyPoints: true,
     includeSections: true,
     maxLength: 500,
+    apiKeys,
   })
 
   // Translate title if needed
   let titleTranslated: string | undefined
-  if (targetLang) {
-    const translatedTitle = await translateText(env, title, targetLang, {
+  if (targetLang && Object.keys(apiKeys).length > 0) {
+    const translatedTitle = await translateWithUserKeys(env, title, targetLang, apiKeys, {
       useCache: true,
     })
     titleTranslated = translatedTitle.translatedText
@@ -176,6 +201,7 @@ export async function summarizeDocument(
 export async function progressiveSummarize(
   env: Env,
   content: string,
+  apiKeys: UserApiKeys = {},
   targetLang?: string
 ): Promise<SummaryResponse> {
   const CHUNK_SIZE = 5000 // Characters per chunk
@@ -197,7 +223,7 @@ export async function progressiveSummarize(
 
   // If only one chunk, use regular summarization
   if (chunks.length === 1) {
-    return summarizeText(env, content, { targetLang, includeKeyPoints: true })
+    return summarizeText(env, content, { targetLang, includeKeyPoints: true, apiKeys })
   }
 
   // Summarize each chunk
@@ -206,6 +232,7 @@ export async function progressiveSummarize(
       summarizeText(env, chunk, {
         maxLength: 200,
         includeKeyPoints: true,
+        apiKeys,
       })
     )
   )
@@ -220,6 +247,7 @@ export async function progressiveSummarize(
     targetLang,
     maxLength: 500,
     includeKeyPoints: true,
+    apiKeys,
   })
 
   // Merge all key points
