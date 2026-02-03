@@ -16,6 +16,17 @@ export interface UseSelectionReturn {
   clearSelection: () => void
 }
 
+// Check if an event target is inside our extension's Shadow DOM
+function isInsideExtension(e: MouseEvent): boolean {
+  const path = e.composedPath()
+  return path.some((el) => {
+    if (el instanceof Element) {
+      return el.tagName.toLowerCase() === 'web-translator-ext'
+    }
+    return false
+  })
+}
+
 export function useSelection(): UseSelectionReturn {
   const [selection, setSelection] = useState<SelectionData | null>(null)
   const isSelecting = useRef(false)
@@ -25,13 +36,23 @@ export function useSelection(): UseSelectionReturn {
   }, [])
 
   useEffect(() => {
-    const handleMouseDown = () => {
+    const handleMouseDown = (e: MouseEvent) => {
+      // Ignore clicks inside our extension UI
+      if (isInsideExtension(e)) {
+        return
+      }
+
       isSelecting.current = true
       // Clear previous selection when starting new selection
       setSelection(null)
     }
 
     const handleMouseUp = (e: MouseEvent) => {
+      // Ignore clicks inside our extension UI
+      if (isInsideExtension(e)) {
+        return
+      }
+
       if (!isSelecting.current) return
       isSelecting.current = false
 

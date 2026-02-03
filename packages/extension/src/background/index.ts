@@ -5,17 +5,7 @@
 
 import { translate, detectLanguage, batchTranslate } from '@/services/translate'
 import Storage from '@/services/storage'
-
-// Message types
-export enum MessageType {
-  TRANSLATE = 'translate',
-  DETECT_LANG = 'detectLang',
-  BATCH_TRANSLATE = 'batchTranslate',
-  GET_SETTINGS = 'getSettings',
-  SET_SETTING = 'setSetting',
-  SHOW_WEB_TRANS = 'showWebTrans',
-  OPEN_PDF_VIEWER = 'openPdfViewer',
-}
+import { MessageType } from '@/types/messages'
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {

@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { MessageType } from '@/background/index'
+import { MessageType } from '@/types/messages'
 
 export interface TranslationResult {
   translatedText: string

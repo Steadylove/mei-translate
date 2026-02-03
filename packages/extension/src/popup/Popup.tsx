@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import Storage from '@/services/storage'
-import { MessageType } from '@/background/index'
+import { MessageType } from '@/types/messages'
 import { Languages, FileText, Settings, Globe, Zap } from 'lucide-react'
 
 const LANGUAGES = [

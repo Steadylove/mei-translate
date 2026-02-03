@@ -480,6 +480,8 @@ function initChildFrame() {
  * Main initialization
  */
 function main() {
+  console.log('[MeiTrans] Content script loaded!')
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init)
   } else {
