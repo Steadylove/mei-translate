@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select'
 import Storage from '@/services/storage'
 import { MessageType } from '@/types/messages'
-import { Languages, FileText, Settings, Globe, Zap } from 'lucide-react'
+import { Languages, FileText, Settings, Globe, Sparkles } from 'lucide-react'
 
 const LANGUAGES = [
   { value: 'zh', label: '中文', flag: '🇨🇳' },
@@ -34,6 +34,7 @@ const Popup: React.FC = () => {
   const [webTransEnabled, setWebTransEnabled] = useState(true)
   const [currentHost, setCurrentHost] = useState('')
   const [isBlacklisted, setIsBlacklisted] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
 
   // Load settings
   useEffect(() => {
@@ -53,6 +54,7 @@ const Popup: React.FC = () => {
           // Invalid URL
         }
       }
+      setIsLoaded(true)
     }
 
     loadSettings()
@@ -119,20 +121,22 @@ const Popup: React.FC = () => {
   }, [])
 
   return (
-    <div className="w-80 bg-gradient-to-br from-slate-50 to-slate-100/50">
+    <div
+      className={`w-80 bg-gradient-to-br from-slate-50 via-white to-teal-50/30 transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+    >
       {/* Header */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-11 h-11 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
+          <div className="relative group">
+            <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/30 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3">
               <Languages className="w-6 h-6 text-white" />
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white flex items-center justify-center">
-              <Zap className="w-2.5 h-2.5 text-white" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full border-2 border-white flex items-center justify-center shadow-md animate-pulse">
+              <Sparkles className="w-2.5 h-2.5 text-white" />
             </div>
           </div>
           <div>
-            <h1 className="font-semibold text-base text-slate-800">Mei Trans</h1>
+            <h1 className="font-semibold text-base text-slate-800 tracking-tight">Mei Trans</h1>
             <p className="text-xs text-slate-500">AI-Powered Translation</p>
           </div>
         </div>
@@ -140,10 +144,10 @@ const Popup: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="px-5 pb-4">
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={handleTranslatePage}
-            className="h-auto py-4 flex-col gap-2 bg-gradient-to-br from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-md shadow-violet-500/25 transition-all hover:shadow-lg hover:shadow-violet-500/30 hover:-translate-y-0.5"
+            className="h-auto py-4 flex-col gap-2.5 bg-gradient-to-br from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 shadow-lg shadow-teal-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-teal-500/30 hover:-translate-y-1 active:translate-y-0 active:shadow-md rounded-xl"
           >
             <Globe className="w-5 h-5" />
             <span className="text-xs font-medium">Translate Page</span>
@@ -151,7 +155,7 @@ const Popup: React.FC = () => {
           <Button
             onClick={handleOpenPdfTrans}
             variant="secondary"
-            className="h-auto py-4 flex-col gap-2 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm transition-all hover:shadow hover:-translate-y-0.5"
+            className="h-auto py-4 flex-col gap-2.5 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-teal-200 active:translate-y-0 rounded-xl"
           >
             <FileText className="w-5 h-5 text-slate-600" />
             <span className="text-xs font-medium text-slate-600">PDF Translate</span>
@@ -162,10 +166,10 @@ const Popup: React.FC = () => {
       {/* Settings */}
       <div className="mx-5 mb-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         {/* Target Language */}
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
-          <span className="text-sm text-slate-700">Target Language</span>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 transition-colors hover:bg-slate-50/50">
+          <span className="text-sm text-slate-700 font-medium">Target Language</span>
           <Select value={targetLanguage} onValueChange={handleLanguageChange}>
-            <SelectTrigger className="w-28 h-8 text-xs border-slate-200">
+            <SelectTrigger className="w-28 h-8 text-xs border-slate-200 hover:border-teal-300 transition-colors">
               <SelectValue>
                 {LANGUAGES.find((l) => l.value === targetLanguage)?.flag}{' '}
                 {LANGUAGES.find((l) => l.value === targetLanguage)?.label}
@@ -185,31 +189,31 @@ const Popup: React.FC = () => {
         </div>
 
         {/* Selection Translation */}
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
-          <span className="text-sm text-slate-700">Selection Translate</span>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 transition-colors hover:bg-slate-50/50">
+          <span className="text-sm text-slate-700 font-medium">Selection Translate</span>
           <Switch
             checked={selectionEnabled}
             onCheckedChange={handleSelectionToggle}
-            className="data-[state=checked]:bg-violet-500"
+            className="data-[state=checked]:bg-teal-500"
           />
         </div>
 
         {/* Web Translation */}
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
-          <span className="text-sm text-slate-700">Page Translate</span>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 transition-colors hover:bg-slate-50/50">
+          <span className="text-sm text-slate-700 font-medium">Page Translate</span>
           <Switch
             checked={webTransEnabled}
             onCheckedChange={handleWebTransToggle}
-            className="data-[state=checked]:bg-violet-500"
+            className="data-[state=checked]:bg-teal-500"
           />
         </div>
 
         {/* Site Blacklist */}
         {currentHost && (
-          <div className="flex items-center justify-between px-4 py-3.5 bg-slate-50/50">
+          <div className="flex items-center justify-between px-4 py-3.5 bg-slate-50/50 transition-colors hover:bg-slate-100/50">
             <div className="min-w-0 flex-1 mr-3">
-              <span className="text-sm text-slate-700">Disable here</span>
-              <p className="text-xs text-slate-400 truncate mt-0.5">{currentHost}</p>
+              <span className="text-sm text-slate-700 font-medium">Disable here</span>
+              <p className="text-xs text-slate-400 truncate mt-0.5 font-mono">{currentHost}</p>
             </div>
             <Switch
               checked={isBlacklisted}
@@ -224,10 +228,10 @@ const Popup: React.FC = () => {
       <div className="px-5 pb-4">
         <button
           onClick={handleOpenOptions}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-slate-500 hover:text-violet-600 transition-colors rounded-xl hover:bg-white/80"
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-xs text-slate-500 hover:text-teal-600 transition-all duration-200 rounded-xl hover:bg-teal-50 group"
         >
-          <Settings className="w-3.5 h-3.5" />
-          <span>More Settings</span>
+          <Settings className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-90" />
+          <span className="font-medium">More Settings</span>
         </button>
       </div>
     </div>

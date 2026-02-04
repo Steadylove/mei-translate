@@ -2,6 +2,7 @@
  * Selection Translation Component
  * Shows a translate button on text selection, then displays translation result
  * Supports dual translation: machine (fast) + LLM (high quality)
+ * Supports dragging to reposition the panel
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -25,15 +26,19 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
   const [panelPosition, setPanelPosition] = useState(position)
   const [copied, setCopied] = useState<'original' | 'machine' | 'llm' | null>(null)
 
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false)
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
+
   // Calculate safe position for the panel
   const calculatePosition = useCallback(() => {
-    const padding = 16
-    const panelWidth = 420
-    const panelHeight = 320
-    const buttonSize = 40
+    const padding = 12
+    const panelWidth = 360
+    const panelHeight = 280
+    const buttonSize = 32
 
-    let x = position.x + 10
-    let y = position.y + 10
+    let x = position.x + 8
+    let y = position.y + 8
 
     if (x + panelWidth > window.innerWidth - padding) {
       x = window.innerWidth - panelWidth - padding
@@ -42,7 +47,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
       x = padding
     }
     if (y + panelHeight > window.innerHeight - padding) {
-      y = position.y - buttonSize - 10
+      y = position.y - buttonSize - 8
     }
     if (y < padding) {
       y = padding
@@ -54,6 +59,49 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
   useEffect(() => {
     calculatePosition()
   }, [calculatePosition])
+
+  // Drag handlers
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      // Only start drag from header area
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragging(true)
+      dragOffsetRef.current = {
+        x: e.clientX - panelPosition.x,
+        y: e.clientY - panelPosition.y,
+      }
+    },
+    [panelPosition]
+  )
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const padding = 8
+      let newX = e.clientX - dragOffsetRef.current.x
+      let newY = e.clientY - dragOffsetRef.current.y
+
+      // Keep panel within viewport
+      newX = Math.max(padding, Math.min(newX, window.innerWidth - 100))
+      newY = Math.max(padding, Math.min(newY, window.innerHeight - 50))
+
+      setPanelPosition({ x: newX, y: newY })
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
 
   const handleTranslate = useCallback(async () => {
     console.log('[MeiTrans] Translate button clicked, text:', text.substring(0, 50))
@@ -72,6 +120,9 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      // Don't close while dragging
+      if (isDragging) return
+
       const shadowRoot = getShadowRoot()
       if (!shadowRoot) return
 
@@ -89,7 +140,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     return () => {
       document.removeEventListener('mousedown', handleClickOutside, true)
     }
-  }, [onClose])
+  }, [onClose, isDragging])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -122,8 +173,8 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     <button className="result-copy" onClick={onClick} title="Copy">
       {isCopied ? (
         <svg
-          width="14"
-          height="14"
+          width="12"
+          height="12"
           viewBox="0 0 24 24"
           fill="none"
           stroke="#10b981"
@@ -133,8 +184,8 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
         </svg>
       ) : (
         <svg
-          width="14"
-          height="14"
+          width="12"
+          height="12"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -175,15 +226,47 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
       style={{
         left: `${panelPosition.x}px`,
         top: `${panelPosition.y}px`,
-        maxWidth: '420px',
+        maxWidth: '360px',
       }}
     >
-      <div className="result-header">
-        <span className="result-header-title">{isLoading ? 'Translating...' : 'Translation'}</span>
-        <button className="result-close" onClick={onClose} title="Close">
+      <div
+        className={`result-header ${isDragging ? 'dragging' : ''}`}
+        onMouseDown={handleDragStart}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      >
+        <span className="result-header-title">
+          {/* Drag handle icon */}
           <svg
-            width="14"
-            height="14"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            className="drag-handle"
+            style={{ opacity: 0.5, marginRight: 2 }}
+          >
+            <circle cx="9" cy="5" r="1" fill="currentColor" />
+            <circle cx="9" cy="12" r="1" fill="currentColor" />
+            <circle cx="9" cy="19" r="1" fill="currentColor" />
+            <circle cx="15" cy="5" r="1" fill="currentColor" />
+            <circle cx="15" cy="12" r="1" fill="currentColor" />
+            <circle cx="15" cy="19" r="1" fill="currentColor" />
+          </svg>
+          {isLoading ? 'Translating...' : 'Translation'}
+        </span>
+        <button
+          className="result-close"
+          onClick={(e) => {
+            e.stopPropagation()
+            onClose()
+          }}
+          title="Close"
+        >
+          <svg
+            width="12"
+            height="12"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
