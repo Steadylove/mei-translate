@@ -283,7 +283,14 @@ function getStyles(): string {
       color: #64748b;
     }
 
-    .result-copy {
+    .result-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .result-copy,
+    .result-speak {
       width: 22px;
       height: 22px;
       display: flex;
@@ -297,10 +304,21 @@ function getStyles(): string {
       transition: all 0.2s ease;
     }
 
-    .result-copy:hover {
+    .result-copy:hover,
+    .result-speak:hover {
       background: #f1f5f9;
       color: #0d9488;
       transform: scale(1.1);
+    }
+
+    .result-speak.speaking {
+      color: #0d9488;
+      animation: speakPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes speakPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
     }
 
     .result-original {

@@ -3,10 +3,12 @@
  * Shows a translate button on text selection, then displays translation result
  * Supports dual translation: machine (fast) + LLM (high quality)
  * Supports dragging to reposition the panel
+ * Supports TTS (Text-to-Speech) for reading text aloud
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslate, DualTranslationResult } from '@/hooks/useTranslate'
+import { useTTS } from '@/hooks/useTTS'
 import { getShadowRoot } from '../index'
 
 interface SelectTransProps {
@@ -21,10 +23,12 @@ type State = 'button' | 'loading' | 'result'
 const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguage, onClose }) => {
   const [state, setState] = useState<State>('button')
   const { dualTranslate, isLoading, error } = useTranslate()
+  const { speak, stop, isSpeaking, isSupported: ttsSupported } = useTTS()
   const [dualResult, setDualResult] = useState<DualTranslationResult | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panelPosition, setPanelPosition] = useState(position)
   const [copied, setCopied] = useState<'original' | 'machine' | 'llm' | null>(null)
+  const [speakingType, setSpeakingType] = useState<'original' | 'machine' | 'llm' | null>(null)
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false)
@@ -168,6 +172,66 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     []
   )
 
+  // TTS handler
+  const handleSpeak = useCallback(
+    (textToSpeak: string, lang: string, type: 'original' | 'machine' | 'llm') => {
+      if (isSpeaking && speakingType === type) {
+        stop()
+        setSpeakingType(null)
+      } else {
+        // Stop any current speech first
+        stop()
+        setSpeakingType(type)
+        speak(textToSpeak, { lang, rate: 0.9 })
+      }
+    },
+    [speak, stop, isSpeaking, speakingType]
+  )
+
+  // Reset speaking state when speech ends
+  useEffect(() => {
+    if (!isSpeaking) {
+      setSpeakingType(null)
+    }
+  }, [isSpeaking])
+
+  // Stop TTS on close
+  useEffect(() => {
+    return () => {
+      stop()
+    }
+  }, [stop])
+
+  // Speak button component
+  const SpeakButton = ({ onClick, isPlaying }: { onClick: () => void; isPlaying: boolean }) =>
+    ttsSupported ? (
+      <button
+        className={`result-speak ${isPlaying ? 'speaking' : ''}`}
+        onClick={onClick}
+        title={isPlaying ? 'Stop' : 'Listen'}
+      >
+        {isPlaying ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1" />
+            <rect x="14" y="4" width="4" height="16" rx="1" />
+          </svg>
+        ) : (
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+        )}
+      </button>
+    ) : null
+
   // Copy button component
   const CopyButton = ({ onClick, isCopied }: { onClick: () => void; isCopied: boolean }) => (
     <button className="result-copy" onClick={onClick} title="Copy">
@@ -292,10 +356,18 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
             <div className="result-section">
               <div className="result-section-header">
                 <span className="result-label">Original</span>
-                <CopyButton
-                  onClick={() => handleCopy(text, 'original')}
-                  isCopied={copied === 'original'}
-                />
+                <div className="result-actions">
+                  <SpeakButton
+                    onClick={() =>
+                      handleSpeak(text, dualResult?.sourceLanguage || 'en', 'original')
+                    }
+                    isPlaying={speakingType === 'original'}
+                  />
+                  <CopyButton
+                    onClick={() => handleCopy(text, 'original')}
+                    isCopied={copied === 'original'}
+                  />
+                </div>
               </div>
               <div className="result-original">{text}</div>
             </div>
@@ -310,10 +382,18 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
                       <span className="result-provider">({dualResult.machine.provider})</span>
                     )}
                   </span>
-                  <CopyButton
-                    onClick={() => handleCopy(dualResult.machine.translatedText!, 'machine')}
-                    isCopied={copied === 'machine'}
-                  />
+                  <div className="result-actions">
+                    <SpeakButton
+                      onClick={() =>
+                        handleSpeak(dualResult.machine.translatedText!, targetLanguage, 'machine')
+                      }
+                      isPlaying={speakingType === 'machine'}
+                    />
+                    <CopyButton
+                      onClick={() => handleCopy(dualResult.machine.translatedText!, 'machine')}
+                      isCopied={copied === 'machine'}
+                    />
+                  </div>
                 </div>
                 <div className="result-translated">{dualResult.machine.translatedText}</div>
               </div>
@@ -330,10 +410,18 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
                     )}
                   </span>
                   {dualResult.llm.translatedText && (
-                    <CopyButton
-                      onClick={() => handleCopy(dualResult.llm.translatedText!, 'llm')}
-                      isCopied={copied === 'llm'}
-                    />
+                    <div className="result-actions">
+                      <SpeakButton
+                        onClick={() =>
+                          handleSpeak(dualResult.llm.translatedText!, targetLanguage, 'llm')
+                        }
+                        isPlaying={speakingType === 'llm'}
+                      />
+                      <CopyButton
+                        onClick={() => handleCopy(dualResult.llm.translatedText!, 'llm')}
+                        isCopied={copied === 'llm'}
+                      />
+                    </div>
                   )}
                 </div>
                 {dualResult.llm.translatedText ? (

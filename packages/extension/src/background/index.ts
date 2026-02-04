@@ -120,7 +120,7 @@ async function handleMessage(message: { type: MessageType; args?: Record<string,
     case MessageType.OPEN_PDF_VIEWER: {
       const { fileUrl } = args as { fileUrl?: string }
       const url = chrome.runtime.getURL(
-        `src/options/index.html?page=pdf${fileUrl ? `&fileUrl=${encodeURIComponent(fileUrl)}` : ''}`
+        `options.html?page=pdf${fileUrl ? `&fileUrl=${encodeURIComponent(fileUrl)}` : ''}`
       )
       chrome.tabs.create({ url })
       return { success: true }

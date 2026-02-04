@@ -2,7 +2,15 @@ import { defineConfig, build } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { copyFileSync, mkdirSync, existsSync, writeFileSync, readFileSync, rmSync } from 'fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  cpSync,
+} from 'fs'
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url)
@@ -169,6 +177,19 @@ function copyAssets() {
           copyFileSync(src, dest)
         }
       })
+
+      // Copy PDF.js viewer (official Mozilla PDF.js with selection script injected)
+      const pdfjsSrc = resolve(__dirname, 'src/assets/pdfjs-5.4.624-dist')
+      const pdfjsDest = resolve(__dirname, 'dist/pdfjs')
+      if (existsSync(pdfjsSrc)) {
+        // Remove old pdfjs folder if exists
+        if (existsSync(pdfjsDest)) {
+          rmSync(pdfjsDest, { recursive: true })
+        }
+        // Copy entire pdfjs folder
+        cpSync(pdfjsSrc, pdfjsDest, { recursive: true })
+        console.log('✅ PDF.js viewer copied')
+      }
 
       console.log('✅ Assets copied')
     },

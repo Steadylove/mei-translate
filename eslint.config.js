@@ -7,7 +7,15 @@ import prettier from 'eslint-config-prettier'
 export default tseslint.config(
   // Ignore patterns
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/backup/**', '**/*.min.js', '**/.wrangler/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/backup/**',
+      '**/*.min.js',
+      '**/.wrangler/**',
+      '**/pdfjs-5.4.624-dist/**',
+      '**/pdfjs/**',
+    ],
   },
 
   // Base JS rules
