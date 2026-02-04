@@ -25,7 +25,7 @@ export interface UserApiKeys {
   groq?: string
 }
 
-// Environment bindings (optional now, user keys take priority)
+// Environment bindings (user provides API keys via request)
 export interface Env {
   // KV Namespace
   TRANSLATION_CACHE: KVNamespace
@@ -33,28 +33,8 @@ export interface Env {
   // D1 Database
   DB: D1Database
 
-  // API Keys (secrets) - optional fallback, user keys preferred
-  OPENAI_API_KEY?: string
-  ANTHROPIC_API_KEY?: string
-  DEEPSEEK_API_KEY?: string
-  GOOGLE_API_KEY?: string
-  DASHSCOPE_API_KEY?: string
-  MOONSHOT_API_KEY?: string
-  ZHIPU_API_KEY?: string
-  GROQ_API_KEY?: string
-
   // Configuration
-  DEFAULT_MODEL?: string
   CORS_ORIGIN?: string
-}
-
-export interface ModelConfig {
-  provider: ModelProvider
-  model: string
-  apiKey: string
-  baseUrl: string
-  costPer1kTokens: number
-  bestFor: string[]
 }
 
 // Translation request/response

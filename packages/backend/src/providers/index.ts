@@ -3,7 +3,6 @@
  * Supports user-configured API keys from request
  */
 
-import type { PageContext } from '../types'
 import type { LLMProvider } from './base'
 import { OpenAIProvider } from './openai'
 import { ClaudeProvider } from './claude'
@@ -126,19 +125,9 @@ export const PROVIDER_CONFIG: Record<
   },
 }
 
-/**
- * User-provided API keys (from request)
- */
-export interface UserApiKeys {
-  openai?: string
-  claude?: string
-  deepseek?: string
-  gemini?: string
-  qwen?: string
-  moonshot?: string
-  zhipu?: string
-  groq?: string
-}
+// Re-export UserApiKeys from types
+export type { UserApiKeys } from '../types'
+import type { UserApiKeys } from '../types'
 
 /**
  * Get LLM provider instance using user-provided API key
@@ -191,54 +180,6 @@ export function getFirstAvailableProvider(userKeys: UserApiKeys): {
     }
   }
   return null
-}
-
-/**
- * Smart model selection based on context
- */
-export function selectBestModel(
-  sourceLang: string,
-  targetLang: string,
-  context?: PageContext,
-  preferredModel?: ModelProvider,
-  userKeys?: UserApiKeys
-): ModelProvider | null {
-  // If user specified a model and has the key, use it
-  if (preferredModel && userKeys?.[preferredModel]) {
-    return preferredModel
-  }
-
-  // Get first available provider
-  const available = userKeys ? getFirstAvailableProvider(userKeys) : null
-  if (available) {
-    console.log(`[ModelSelect] Using available provider: ${available.provider}`)
-    return available.provider
-  }
-
-  // Chinese content suggestions
-  if ((sourceLang === 'zh' || targetLang === 'zh') && userKeys) {
-    // Prefer Chinese-optimized models
-    if (userKeys.deepseek) return 'deepseek'
-    if (userKeys.qwen) return 'qwen'
-    if (userKeys.moonshot) return 'moonshot'
-    if (userKeys.zhipu) return 'zhipu'
-  }
-
-  return null
-}
-
-/**
- * Get provider configuration
- */
-export function getProviderConfig(provider: ModelProvider) {
-  return PROVIDER_CONFIG[provider]
-}
-
-/**
- * Get all provider configurations
- */
-export function getAllProviderConfigs() {
-  return PROVIDER_CONFIG
 }
 
 export {

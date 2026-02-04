@@ -369,32 +369,3 @@ export async function saveToMemory(
     console.error('Failed to save to memory:', error)
   }
 }
-
-/**
- * Get from translation memory (D1)
- */
-export async function getFromMemory(
-  env: Env,
-  sourceText: string,
-  sourceLang: string,
-  targetLang: string
-): Promise<string | null> {
-  try {
-    const sourceHash = await hashText(sourceText)
-
-    const result = await env.DB.prepare(
-      `
-      SELECT target_text FROM translation_memory
-      WHERE source_hash = ? AND source_lang = ? AND target_lang = ?
-      LIMIT 1
-    `
-    )
-      .bind(sourceHash, sourceLang, targetLang)
-      .first<{ target_text: string }>()
-
-    return result?.target_text || null
-  } catch (error) {
-    console.error('Failed to get from memory:', error)
-    return null
-  }
-}

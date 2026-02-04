@@ -78,14 +78,6 @@ export interface DetectLanguageResponse {
   confidence: number
 }
 
-export interface SummaryResponse {
-  summary: string
-  summaryTranslated?: string
-  keyPoints: string[]
-  keyPointsTranslated?: string[]
-  estimatedReadTime: number
-}
-
 export interface ApiResponse<T> {
   success: boolean
   data?: T
@@ -329,42 +321,6 @@ export async function batchTranslate(
 }
 
 /**
- * Free translation (no API key required)
- */
-export async function freeTranslate(
-  text: string,
-  targetLanguage: string,
-  sourceLanguage?: string
-): Promise<TranslateResponse> {
-  try {
-    const result = await apiRequest<{
-      translatedText: string
-      sourceLang: string
-      targetLang: string
-      provider: string
-    }>('/api/translate/free', 'POST', {
-      text,
-      targetLang: targetLanguage,
-      sourceLang: sourceLanguage,
-    })
-
-    return {
-      translatedText: result.translatedText,
-      sourceLanguage: result.sourceLang,
-      targetLanguage: result.targetLang,
-      model: result.provider,
-    }
-  } catch (error) {
-    console.error('Free translation API error:', error)
-    return {
-      translatedText: `[Translation pending] ${text}`,
-      sourceLanguage: sourceLanguage || 'unknown',
-      targetLanguage,
-    }
-  }
-}
-
-/**
  * Request web page translation (batch translation for page texts)
  */
 export async function requestWebPageTranslation(
@@ -377,114 +333,4 @@ export async function requestWebPageTranslation(
     sourceLanguage,
     targetLanguage,
   })
-}
-
-/**
- * Analyze page context
- */
-export async function analyzeContext(content: string, url?: string): Promise<PageContext> {
-  try {
-    const result = await apiRequest<{
-      context: PageContext
-      confidence: number
-    }>('/api/context', 'POST', { content, url })
-
-    return result.context
-  } catch (_error) {
-    // Return default context
-    return {
-      type: 'general',
-      tone: 'neutral',
-    }
-  }
-}
-
-/**
- * Quick context detection (local, fast)
- */
-export async function quickContextDetection(content: string): Promise<PageContext> {
-  // Simple heuristic-based context detection
-  const technicalTerms = ['function', 'const', 'let', 'var', 'class', 'API', 'npm', 'git']
-  const newsTerms = ['breaking', 'report', 'today', 'announced', 'officials']
-  const academicTerms = ['study', 'research', 'analysis', 'methodology', 'hypothesis']
-
-  const words = content.toLowerCase().split(/\s+/)
-  const technicalCount = words.filter((w) => technicalTerms.includes(w)).length
-  const newsCount = words.filter((w) => newsTerms.includes(w)).length
-  const academicCount = words.filter((w) => academicTerms.includes(w)).length
-
-  let type: PageContext['type'] = 'general'
-  if (technicalCount > 5) type = 'technical'
-  else if (newsCount > 3) type = 'news'
-  else if (academicCount > 3) type = 'academic'
-
-  return {
-    type,
-    tone: 'neutral',
-  }
-}
-
-/**
- * Summarize content
- */
-export async function summarizeContent(
-  text: string,
-  targetLanguage?: string
-): Promise<SummaryResponse> {
-  const { apiKeys, provider, model } = await getUserConfig()
-
-  try {
-    const result = await apiRequest<SummaryResponse>('/api/summary', 'POST', {
-      text,
-      targetLang: targetLanguage,
-      apiKeys,
-      model: provider,
-      modelId: model,
-    })
-    return result
-  } catch (_error) {
-    return {
-      summary: text.slice(0, 200) + '...',
-      keyPoints: [],
-      estimatedReadTime: Math.ceil(text.split(/\s+/).length / 200),
-    }
-  }
-}
-
-/**
- * Get translation memory stats
- */
-export async function getMemoryStats(): Promise<{
-  totalEntries: number
-  languages: string[]
-  recentTranslations: number
-}> {
-  try {
-    return await apiRequest('/api/memory/stats', 'GET')
-  } catch (_error) {
-    return {
-      totalEntries: 0,
-      languages: [],
-      recentTranslations: 0,
-    }
-  }
-}
-
-/**
- * Rate a translation for quality feedback
- */
-export async function rateTranslation(
-  sourceText: string,
-  translatedText: string,
-  rating: number
-): Promise<void> {
-  try {
-    await apiRequest('/api/memory/rate', 'POST', {
-      sourceText,
-      translatedText,
-      rating,
-    })
-  } catch (error) {
-    console.error('Failed to rate translation:', error)
-  }
 }
