@@ -9,7 +9,7 @@ import Storage, { ModelProvider, UserApiKeys } from './storage'
 // Backend API configuration - uses Vite's define or falls back to env check
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:8787' : 'https://webtrans-api.your-domain.workers.dev')
+  (import.meta.env.DEV ? 'http://localhost:8787' : 'https://webtrans-api.meitrans.workers.dev')
 
 export type { ModelProvider, UserApiKeys }
 

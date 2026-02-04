@@ -42,7 +42,7 @@ function buildContentScript(mode: string) {
           'import.meta.env.VITE_API_URL': JSON.stringify(
             mode === 'development'
               ? 'http://localhost:8787'
-              : 'https://webtrans-api.your-domain.workers.dev'
+              : 'https://webtrans-api.meitrans.workers.dev'
           ),
           'import.meta.env.MODE': JSON.stringify(mode),
           'import.meta.env.DEV': JSON.stringify(mode === 'development'),
@@ -91,7 +91,7 @@ function buildBackgroundScript(mode: string) {
           'import.meta.env.VITE_API_URL': JSON.stringify(
             mode === 'development'
               ? 'http://localhost:8787'
-              : 'https://webtrans-api.your-domain.workers.dev'
+              : 'https://webtrans-api.meitrans.workers.dev'
           ),
           'import.meta.env.MODE': JSON.stringify(mode),
           'import.meta.env.DEV': JSON.stringify(mode === 'development'),
@@ -227,9 +227,7 @@ export default defineConfig(({ mode }) => ({
   ],
   define: {
     'import.meta.env.VITE_API_URL': JSON.stringify(
-      mode === 'development'
-        ? 'http://localhost:8787'
-        : 'https://webtrans-api.your-domain.workers.dev'
+      mode === 'development' ? 'http://localhost:8787' : 'https://webtrans-api.meitrans.workers.dev'
     ),
   },
   resolve: {

@@ -11,20 +11,14 @@ local_protocol = "http"
 # KV Namespace for caching
 [[kv_namespaces]]
 binding = "TRANSLATION_CACHE"
-id = "YOUR_KV_ID"
-preview_id = "YOUR_KV_PREVIEW_ID"
+id = "c5708cf46ed74f3a874af3e2f3a21868"
+preview_id = "5fbac97f070e4412b8b11c44052e7054"
 
-# D1 Database for translation memory
+# D1 Database for translation memory (replace with your actual ID after creation)
 [[d1_databases]]
 binding = "DB"
 database_name = "webtrans-memory"
-database_id = "YOUR_D1_ID"
-
-# Environment variables (set via wrangler secret)
-# OPENAI_API_KEY
-# ANTHROPIC_API_KEY
-# DEEPSEEK_API_KEY
+database_id = "6e2658de-d2da-4da2-96fc-a6467d17839f"
 
 [vars]
-DEFAULT_MODEL = "deepseek"
 CORS_ORIGIN = "*"

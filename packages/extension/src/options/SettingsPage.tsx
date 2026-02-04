@@ -123,16 +123,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
     })
   }
 
-  const handleProviderSelect = useCallback(async (provider: ModelProvider) => {
-    setSelectedProvider(provider)
-    const defaultModel = PROVIDER_CONFIG[provider].defaultModel
-    setSelectedModel(defaultModel)
-    await Storage.setMultiple({
-      selectedProvider: provider,
-      selectedModel: defaultModel,
-    })
-    showSaved()
-  }, [])
+  const handleProviderSelect = useCallback(
+    async (provider: ModelProvider) => {
+      // If same provider is already selected, don't reset the model
+      if (selectedProvider === provider) {
+        return
+      }
+
+      setSelectedProvider(provider)
+      const defaultModel = PROVIDER_CONFIG[provider].defaultModel
+      setSelectedModel(defaultModel)
+      await Storage.setMultiple({
+        selectedProvider: provider,
+        selectedModel: defaultModel,
+      })
+      showSaved()
+    },
+    [selectedProvider]
+  )
 
   const handleModelSelect = useCallback(async (model: string) => {
     setSelectedModel(model)
