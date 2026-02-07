@@ -1,160 +1,189 @@
-# Web Translator
+# MeiTrans - AI-Powered Web Translator
 
-AI-powered translation Chrome extension with multi-model LLM backend.
+[中文文档](./README.zh-CN.md)
 
-## Monorepo Structure
+<p align="center">
+  <strong>A Chrome extension for intelligent translation powered by multiple AI models</strong>
+</p>
+
+<p align="center">
+  Machine Translation + LLM Translation | PDF Translation | TTS | 8 AI Providers
+</p>
+
+---
+
+## Features
+
+### Core Translation
+
+- **Selection Translation** - Select text on any webpage, get instant dual translation (machine + AI)
+- **Full Page Translation** - Translate entire web pages with one click
+- **PDF Translation** - Upload PDFs, select text, auto-translate with split-panel view
+- **Context-Aware** - Automatically detects content type (tech, news, academic, etc.) for better results
+
+### AI & LLM
+
+- **8 AI Providers** - OpenAI, Claude, DeepSeek, Gemini, Qwen, Moonshot, Zhipu GLM, Groq
+- **Dual Translation** - Machine translation (fast, free) + AI translation (high quality) shown side by side
+- **User-Configured Keys** - Bring your own API keys, switch models anytime
+- **Smart Caching** - Translation results are cached to reduce API costs
+
+### User Experience
+
+- **Text-to-Speech** - Listen to original and translated text
+- **Draggable Panels** - Reposition translation popups freely
+- **Keyboard Shortcuts** - `Alt+Shift+T` for page translation, `Alt+Shift+D` for input box
+- **Site Blacklist** - Disable on specific websites
+- **Translation Memory** - Learns from past translations
+
+## Architecture
 
 ```
 webtrans-ext/
 ├── packages/
-│   ├── extension/          # Chrome Extension (React + Vite)
+│   ├── extension/          # Chrome Extension (React + TypeScript + Vite)
 │   │   ├── src/
-│   │   │   ├── content/    # Content script (page injection)
-│   │   │   ├── popup/      # Extension popup
-│   │   │   ├── options/    # Settings & PDF viewer
+│   │   │   ├── popup/      # Extension popup UI
+│   │   │   ├── options/    # Settings page & PDF viewer
+│   │   │   ├── content/    # Content script (injected into pages)
 │   │   │   ├── background/ # Service worker
-│   │   │   └── services/   # API client
-│   │   └── dist/           # Built extension
+│   │   │   ├── hooks/      # React hooks (useTranslate, useTTS, etc.)
+│   │   │   ├── services/   # API services & storage
+│   │   │   └── components/ # Reusable UI components
+│   │   └── dist/           # Built extension (load this in Chrome)
 │   │
-│   └── backend/            # Cloudflare Workers API
-│       ├── src/
-│       │   ├── routes/     # API endpoints
-│       │   ├── agents/     # AI agents (translator, summarizer)
-│       │   ├── providers/  # LLM providers (OpenAI, Claude, DeepSeek)
-│       │   └── db/         # D1 schema
-│       └── wrangler.toml   # Cloudflare config
-│
-├── package.json            # Root workspace config
-└── pnpm-workspace.yaml     # Workspace definition
+│   └── backend/            # API Server (Cloudflare Workers + Hono)
+│       └── src/
+│           ├── routes/     # API endpoints
+│           ├── providers/  # LLM provider adapters
+│           ├── agents/     # Translation, summarization, context analysis
+│           └── utils/      # Caching, hashing utilities
 ```
-
-## Features
-
-- **Selection Translation**: Select text for instant translation
-- **Page Translation**: Translate entire web pages
-- **PDF Translation**: Upload and translate PDFs
-- **AI-Powered**: GPT-4o-mini, Claude Haiku, DeepSeek
-- **Context-Aware**: Adapts style based on content type
-- **Smart Caching**: KV cache for repeated translations
-- **Translation Memory**: Learns from past translations
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm
-- Cloudflare account (for backend)
+- Node.js >= 18
+- pnpm >= 8
 
-### Installation
+### Install & Run
 
 ```bash
-# Install all dependencies
+# Install dependencies
 pnpm install
-```
 
-### Development
-
-Run both frontend and backend in parallel:
-
-```bash
+# Start development (extension + backend)
 pnpm dev
 ```
 
-Or run them separately:
+### Load Extension in Chrome
+
+1. Open `chrome://extensions/`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select `packages/extension/dist`
+
+### Configure AI Models
+
+1. Click the extension icon → **More Settings**
+2. Add your API key for any provider (OpenAI, Claude, DeepSeek, etc.)
+3. Click **Use** to activate, select your preferred model
+
+> Machine translation works without any API key. AI translation requires at least one configured provider.
+
+## Development
 
 ```bash
-# Terminal 1: Backend API (http://localhost:8787)
+# Run everything
+pnpm dev
+
+# Run only extension (with HMR for popup/options)
+pnpm dev:extension
+
+# Run only backend
 pnpm dev:backend
 
-# Terminal 2: Extension (auto-reload)
-pnpm dev:extension
-```
-
-Then load the extension in Chrome:
-
-1. Go to `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select `packages/extension/dist/`
-
-### Build
-
-```bash
-# Build both
+# Build for production
 pnpm build
 
-# Build separately
-pnpm build:extension
-pnpm build:backend
+# Build extension only (dev mode, localhost API)
+cd packages/extension && pnpm build:dev
+
+# Build extension only (production, deployed API)
+cd packages/extension && pnpm build
+
+# Lint & format
+pnpm lint
+pnpm format
 ```
 
-### Deploy Backend
+## Deployment
+
+### Backend (Cloudflare Workers)
 
 ```bash
-# Set up Cloudflare resources (first time)
 cd packages/backend
-wrangler kv:namespace create TRANSLATION_CACHE
-wrangler d1 create webtrans-memory
 
-# Set API keys
-wrangler secret put DEEPSEEK_API_KEY
-
-# Deploy
-pnpm deploy:backend
+# First time: initialize resources
+./deploy.sh init      # Creates KV namespace + D1 database
+# Edit wrangler.toml with the generated IDs
+./deploy.sh migrate   # Initialize database tables
+./deploy.sh deploy    # Deploy to Cloudflare
 ```
 
-## Configuration
+Free tier includes:
 
-### Environment Variables
+- 100,000 requests/day
+- 5 GB D1 storage
+- KV caching
 
-Update `packages/extension/vite.config.ts` to set your production API URL:
+### Extension
 
-```typescript
-'import.meta.env.VITE_API_URL': JSON.stringify(
-  mode === 'development'
-    ? 'http://localhost:8787'
-    : 'https://your-api.workers.dev'  // ← Change this
-),
-```
-
-### API Keys
-
-Set these secrets in Cloudflare:
+After deploying the backend, update the API URL in `packages/extension/vite.config.ts`, then:
 
 ```bash
-wrangler secret put DEEPSEEK_API_KEY   # Required (cheapest)
-wrangler secret put OPENAI_API_KEY     # Optional
-wrangler secret put ANTHROPIC_API_KEY  # Optional
+cd packages/extension
+pnpm build            # Production build
 ```
+
+Load the `dist` folder in Chrome, or package as `.crx` for distribution.
 
 ## API Endpoints
 
-| Endpoint                | Method   | Description           |
-| ----------------------- | -------- | --------------------- |
-| `/api/translate`        | POST     | Translate single text |
-| `/api/translate/batch`  | POST     | Batch translate       |
-| `/api/translate/detect` | POST     | Detect language       |
-| `/api/context`          | POST     | Analyze page context  |
-| `/api/summary`          | POST     | Summarize content     |
-| `/api/memory`           | GET/POST | Translation memory    |
+| Endpoint                   | Method | Description                                |
+| -------------------------- | ------ | ------------------------------------------ |
+| `/api/translate`           | POST   | Single text translation (requires API key) |
+| `/api/translate/dual`      | POST   | Dual translation (machine + AI)            |
+| `/api/translate/free`      | POST   | Free machine translation                   |
+| `/api/translate/batch`     | POST   | Batch translation (up to 50 texts)         |
+| `/api/translate/detect`    | POST   | Language detection                         |
+| `/api/translate/providers` | GET    | List available AI providers                |
+| `/api/context`             | POST   | Context analysis                           |
+| `/api/summary`             | POST   | Text summarization                         |
+| `/api/memory/*`            | CRUD   | Translation memory                         |
+
+## Supported Languages
+
+Chinese, English, Japanese, Korean, French, German, Spanish, Russian, Arabic, Portuguese
 
 ## Keyboard Shortcuts
 
-| Shortcut    | Action                  |
-| ----------- | ----------------------- |
-| Alt+Shift+T | Toggle page translation |
-| Alt+Shift+D | Open translation box    |
+| Shortcut      | Action                     |
+| ------------- | -------------------------- |
+| `Alt+Shift+T` | Toggle page translation    |
+| `Alt+Shift+D` | Open translation input box |
+| `Esc`         | Close translation popup    |
 
-## Cost Estimation
+## Tech Stack
 
-| Usage  | Words/Month | Est. Cost |
-| ------ | ----------- | --------- |
-| Light  | 100K        | ~$0.5     |
-| Medium | 500K        | ~$2-3     |
-| Heavy  | 2M          | ~$8-10    |
-
-_With caching: 30-50% savings_
+| Component | Technology                                |
+| --------- | ----------------------------------------- |
+| Extension | React 18, TypeScript, Vite, Tailwind CSS  |
+| Backend   | Cloudflare Workers, Hono, D1 (SQLite), KV |
+| PDF       | PDF.js (Mozilla)                          |
+| TTS       | Web Speech API                            |
+| Monorepo  | pnpm workspaces                           |
 
 ## License
 
