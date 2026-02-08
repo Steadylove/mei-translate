@@ -8,6 +8,7 @@ import type {
   Env,
   TranslateRequest,
   BatchTranslateRequest,
+  RefineRequest,
   ApiResponse,
   UserApiKeys,
   ModelProvider,
@@ -17,6 +18,7 @@ import {
   translateBatch,
   detectLanguage,
   saveToMemory,
+  refineTranslation,
 } from '../agents/translator'
 import { freeTranslate, detectLanguage as freeDetectLanguage } from '../providers/free-translate'
 import { getFirstAvailableProvider, PROVIDER_CONFIG } from '../providers'
@@ -386,6 +388,81 @@ translateRoute.post('/dual', async (c) => {
       {
         success: false,
         error: error instanceof Error ? error.message : 'Translation failed',
+      },
+      500
+    )
+  }
+})
+
+/**
+ * POST /api/translate/refine
+ * Refine a translation through multi-turn conversation with LLM
+ */
+translateRoute.post('/refine', async (c) => {
+  const startTime = Date.now()
+
+  try {
+    const body = await c.req.json<RefineRequest>()
+    const {
+      originalText,
+      currentTranslation,
+      instruction,
+      history,
+      targetLang,
+      sourceLang,
+      apiKeys,
+      model,
+      modelId,
+    } = body
+
+    if (!originalText || !currentTranslation || !instruction || !targetLang) {
+      return c.json<ApiResponse<null>>(
+        {
+          success: false,
+          error:
+            'Missing required fields: originalText, currentTranslation, instruction, targetLang',
+        },
+        400
+      )
+    }
+
+    if (!apiKeys || !getFirstAvailableProvider(apiKeys)) {
+      return c.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'No API key configured. Please add an API key in settings.',
+        },
+        400
+      )
+    }
+
+    const result = await refineTranslation(c.env, {
+      originalText,
+      currentTranslation,
+      instruction,
+      history: history || [],
+      targetLang,
+      sourceLang,
+      apiKeys,
+      model,
+      modelId,
+    })
+
+    const processingTime = Date.now() - startTime
+
+    return c.json<ApiResponse<typeof result>>({
+      success: true,
+      data: result,
+      meta: {
+        processingTime,
+      },
+    })
+  } catch (error) {
+    console.error('Refine translation error:', error)
+    return c.json<ApiResponse<null>>(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Translation refinement failed',
       },
       500
     )

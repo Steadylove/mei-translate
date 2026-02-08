@@ -157,6 +157,19 @@ export interface ApiResponse<T> {
   }
 }
 
+// Refine translation request
+export interface RefineRequest {
+  originalText: string
+  currentTranslation: string
+  instruction: string
+  history: Array<{ role: 'user' | 'assistant'; content: string }>
+  targetLang: string
+  sourceLang?: string
+  apiKeys: UserApiKeys
+  model?: ModelProvider
+  modelId?: string
+}
+
 // LLM Message format
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'

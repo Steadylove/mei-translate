@@ -3,7 +3,13 @@
  * Handles message passing, context menus, and storage management
  */
 
-import { translate, dualTranslate, detectLanguage, batchTranslate } from '@/services/translate'
+import {
+  translate,
+  dualTranslate,
+  detectLanguage,
+  batchTranslate,
+  refineTranslation,
+} from '@/services/translate'
 import Storage from '@/services/storage'
 import { MessageType } from '@/types/messages'
 
@@ -105,6 +111,27 @@ async function handleMessage(message: { type: MessageType; args?: Record<string,
         targetLanguage: string
       }
       return batchTranslate({ texts, sourceLanguage, targetLanguage })
+    }
+
+    case MessageType.REFINE_TRANSLATE: {
+      const { originalText, currentTranslation, instruction, history, targetLang, sourceLang } =
+        args as {
+          originalText: string
+          currentTranslation: string
+          instruction: string
+          history: Array<{ role: 'user' | 'assistant'; content: string }>
+          targetLang: string
+          sourceLang?: string
+        }
+      console.log('[MeiTrans BG] Refine request, instruction:', instruction.substring(0, 50))
+      return refineTranslation({
+        originalText,
+        currentTranslation,
+        instruction,
+        history: history || [],
+        targetLang,
+        sourceLang,
+      })
     }
 
     case MessageType.GET_SETTINGS: {

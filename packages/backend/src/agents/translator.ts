@@ -11,6 +11,7 @@ import type {
   ChatMessage,
   LLMResponse,
   UserApiKeys,
+  RefineRequest,
 } from '../types'
 import { getProviderWithKey, getFirstAvailableProvider, PROVIDER_CONFIG } from '../providers'
 import { getCachedTranslation, setCachedTranslation, getBatchCached } from '../utils/cache'
@@ -325,6 +326,101 @@ export async function translateBatch(
     model: selectedProvider,
     cachedCount: cachedResults.size,
     tokensUsed: totalTokens,
+  }
+}
+
+/**
+ * Refine a translation via multi-turn conversation with LLM
+ */
+export async function refineTranslation(
+  env: Env,
+  request: RefineRequest
+): Promise<{ refinedText: string; model: string }> {
+  const {
+    originalText,
+    currentTranslation,
+    instruction,
+    history,
+    targetLang,
+    sourceLang,
+    apiKeys,
+    model: preferredModel,
+    modelId,
+  } = request
+
+  const langNames: Record<string, string> = {
+    en: 'English',
+    zh: 'Chinese (Simplified)',
+    ja: 'Japanese',
+    ko: 'Korean',
+    es: 'Spanish',
+    fr: 'French',
+    de: 'German',
+    ru: 'Russian',
+    ar: 'Arabic',
+    pt: 'Portuguese',
+  }
+
+  const targetLangName = langNames[targetLang] || targetLang
+  const sourceLangName =
+    langNames[sourceLang || detectLanguage(originalText)] || sourceLang || 'auto'
+
+  // Build system prompt for refinement
+  const systemPrompt = `You are a translation refinement assistant. You help users improve and polish translations.
+
+Original text (${sourceLangName}): "${originalText}"
+
+Current translation (${targetLangName}): "${currentTranslation}"
+
+Rules:
+1. Only output the refined translation, nothing else
+2. Follow the user's instruction to adjust the translation
+3. Preserve the original meaning while applying the requested style changes
+4. Keep proper nouns, code, and technical terms as appropriate
+5. Do not add explanations, notes, or quotation marks around the result`
+
+  // Build multi-turn messages
+  const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }]
+
+  // Add conversation history (limit to last 10 rounds to avoid token overflow)
+  const recentHistory = history.slice(-20) // 20 messages = 10 rounds (user + assistant)
+  for (const msg of recentHistory) {
+    messages.push({ role: msg.role, content: msg.content })
+  }
+
+  // Add the new instruction
+  messages.push({ role: 'user', content: instruction })
+
+  // Get provider
+  let selectedProvider: ModelProvider
+  let apiKey: string
+
+  if (preferredModel && apiKeys[preferredModel]) {
+    selectedProvider = preferredModel
+    apiKey = apiKeys[preferredModel]!
+  } else {
+    const available = getFirstAvailableProvider(apiKeys)
+    if (!available) {
+      throw new Error('No API key configured. Please add an API key in settings.')
+    }
+    selectedProvider = available.provider
+    apiKey = available.apiKey
+  }
+
+  const provider = getProviderWithKey(selectedProvider, apiKey)
+  const specificModel = modelId || PROVIDER_CONFIG[selectedProvider].defaultModel
+
+  console.log(`[Refine] Using provider: ${selectedProvider}, model: ${specificModel}`)
+
+  const response: LLMResponse = await provider.chat(messages, {
+    temperature: 0.5,
+    maxTokens: Math.max(originalText.length * 3, 1000),
+    model: specificModel,
+  })
+
+  return {
+    refinedText: response.content.trim(),
+    model: specificModel,
   }
 }
 

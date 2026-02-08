@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslate, DualTranslationResult } from '@/hooks/useTranslate'
 import { useTTS } from '@/hooks/useTTS'
+import { useRefine, RefineMessage } from '@/hooks/useRefine'
 import { getShadowRoot } from '../index'
 
 interface SelectTransProps {
@@ -24,11 +25,44 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
   const [state, setState] = useState<State>('button')
   const { dualTranslate, isLoading, error } = useTranslate()
   const { speak, stop, isSpeaking, isSupported: ttsSupported } = useTTS()
+  const { messages: refineMessages, refine, isRefining, error: refineError } = useRefine()
   const [dualResult, setDualResult] = useState<DualTranslationResult | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panelPosition, setPanelPosition] = useState(position)
   const [copied, setCopied] = useState<'original' | 'machine' | 'llm' | null>(null)
   const [speakingType, setSpeakingType] = useState<'original' | 'machine' | 'llm' | null>(null)
+
+  // Refine state
+  const [showRefine, setShowRefine] = useState(false)
+  const [refineInput, setRefineInput] = useState('')
+  const [adoptedId, setAdoptedId] = useState<string | null>(null)
+  const refineMessagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Preset refine commands (all English)
+  const presetCommands = [
+    {
+      label: 'More Natural',
+      instruction: 'Make the translation more colloquial and natural-sounding',
+    },
+    { label: 'More Formal', instruction: 'Make the translation more formal and professional' },
+    {
+      label: 'More Concise',
+      instruction:
+        'Make the translation more concise, remove redundancy while keeping the core meaning',
+    },
+    {
+      label: 'Keep Terms',
+      instruction: 'Keep all technical terms and proper nouns untranslated, use the original terms',
+    },
+    {
+      label: 'Simpler Words',
+      instruction: 'Use simpler, easier-to-understand words in the translation',
+    },
+    {
+      label: 'More Detailed',
+      instruction: 'Expand the translation with more detail and explanation where appropriate',
+    },
+  ]
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false)
@@ -124,8 +158,8 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // Don't close while dragging
-      if (isDragging) return
+      // Don't close while dragging or refine modal is open
+      if (isDragging || showRefine) return
 
       const shadowRoot = getShadowRoot()
       if (!shadowRoot) return
@@ -144,12 +178,16 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     return () => {
       document.removeEventListener('mousedown', handleClickOutside, true)
     }
-  }, [onClose, isDragging])
+  }, [onClose, isDragging, showRefine])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        if (showRefine) {
+          setShowRefine(false)
+        } else {
+          onClose()
+        }
       }
     }
 
@@ -157,7 +195,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onClose])
+  }, [onClose, showRefine])
 
   const handleCopy = useCallback(
     async (textToCopy: string, type: 'original' | 'machine' | 'llm') => {
@@ -187,6 +225,58 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     },
     [speak, stop, isSpeaking, speakingType]
   )
+
+  // Handle refine request
+  const handleRefine = useCallback(
+    async (instruction: string) => {
+      if (!instruction.trim() || !dualResult) return
+
+      const currentTranslation =
+        dualResult.llm.translatedText || dualResult.machine.translatedText || ''
+
+      const refinedText = await refine(instruction, {
+        originalText: text,
+        currentTranslation,
+        targetLang: targetLanguage,
+        sourceLang: dualResult.sourceLanguage,
+      })
+
+      if (refinedText) {
+        setRefineInput('')
+      }
+    },
+    [dualResult, text, targetLanguage, refine]
+  )
+
+  // Handle sending custom instruction
+  const handleSendRefine = useCallback(() => {
+    if (refineInput.trim()) {
+      handleRefine(refineInput)
+    }
+  }, [refineInput, handleRefine])
+
+  // Handle adopting a refined translation
+  const handleAdopt = useCallback(
+    (message: RefineMessage) => {
+      if (!dualResult) return
+      setAdoptedId(message.id)
+      setDualResult({
+        ...dualResult,
+        llm: {
+          ...dualResult.llm,
+          translatedText: message.content,
+        },
+      })
+    },
+    [dualResult]
+  )
+
+  // Auto-scroll refine messages
+  useEffect(() => {
+    if (refineMessagesEndRef.current) {
+      refineMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [refineMessages])
 
   // Reset speaking state when speech ends
   useEffect(() => {
@@ -284,171 +374,368 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
 
   // Render result panel
   return (
-    <div
-      ref={containerRef}
-      className="result-panel"
-      style={{
-        left: `${panelPosition.x}px`,
-        top: `${panelPosition.y}px`,
-        maxWidth: '360px',
-      }}
-    >
+    <>
       <div
-        className={`result-header ${isDragging ? 'dragging' : ''}`}
-        onMouseDown={handleDragStart}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        ref={containerRef}
+        className="result-panel"
+        style={{
+          left: `${panelPosition.x}px`,
+          top: `${panelPosition.y}px`,
+          maxWidth: '360px',
+        }}
       >
-        <span className="result-header-title">
-          {/* Drag handle icon */}
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="drag-handle"
-            style={{ opacity: 0.5, marginRight: 2 }}
-          >
-            <circle cx="9" cy="5" r="1" fill="currentColor" />
-            <circle cx="9" cy="12" r="1" fill="currentColor" />
-            <circle cx="9" cy="19" r="1" fill="currentColor" />
-            <circle cx="15" cy="5" r="1" fill="currentColor" />
-            <circle cx="15" cy="12" r="1" fill="currentColor" />
-            <circle cx="15" cy="19" r="1" fill="currentColor" />
-          </svg>
-          {isLoading ? 'Translating...' : 'Translation'}
-        </span>
-        <button
-          className="result-close"
-          onClick={(e) => {
-            e.stopPropagation()
-            onClose()
-          }}
-          title="Close"
+        <div
+          className={`result-header ${isDragging ? 'dragging' : ''}`}
+          onMouseDown={handleDragStart}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
+          <span className="result-header-title">
+            {/* Drag handle icon */}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className="drag-handle"
+              style={{ opacity: 0.5, marginRight: 2 }}
+            >
+              <circle cx="9" cy="5" r="1" fill="currentColor" />
+              <circle cx="9" cy="12" r="1" fill="currentColor" />
+              <circle cx="9" cy="19" r="1" fill="currentColor" />
+              <circle cx="15" cy="5" r="1" fill="currentColor" />
+              <circle cx="15" cy="12" r="1" fill="currentColor" />
+              <circle cx="15" cy="19" r="1" fill="currentColor" />
+            </svg>
+            {isLoading ? 'Translating...' : 'Translation'}
+          </span>
+          <button
+            className="result-close"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClose()
+            }}
+            title="Close"
           >
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-      <div className="result-content">
-        {isLoading ? (
-          <div className="result-loading">
-            <div className="loading-spinner" />
-            <span className="loading-text">Translating...</span>
-          </div>
-        ) : error ? (
-          <div className="result-error">{error}</div>
-        ) : dualResult ? (
-          <>
-            {/* Original Text */}
-            <div className="result-section">
-              <div className="result-section-header">
-                <span className="result-label">Original</span>
-                <div className="result-actions">
-                  <SpeakButton
-                    onClick={() =>
-                      handleSpeak(text, dualResult?.sourceLanguage || 'en', 'original')
-                    }
-                    isPlaying={speakingType === 'original'}
-                  />
-                  <CopyButton
-                    onClick={() => handleCopy(text, 'original')}
-                    isCopied={copied === 'original'}
-                  />
-                </div>
-              </div>
-              <div className="result-original">{text}</div>
+        <div className="result-content">
+          {isLoading ? (
+            <div className="result-loading">
+              <div className="loading-spinner" />
+              <span className="loading-text">Translating...</span>
             </div>
-
-            {/* Machine Translation - Always show if available */}
-            {dualResult.machine.translatedText && (
+          ) : error ? (
+            <div className="result-error">{error}</div>
+          ) : dualResult ? (
+            <>
+              {/* Original Text */}
               <div className="result-section">
                 <div className="result-section-header">
-                  <span className="result-label">
-                    ⚡ Machine
-                    {dualResult.machine.provider && (
-                      <span className="result-provider">({dualResult.machine.provider})</span>
-                    )}
-                  </span>
+                  <span className="result-label">Original</span>
                   <div className="result-actions">
                     <SpeakButton
                       onClick={() =>
-                        handleSpeak(dualResult.machine.translatedText!, targetLanguage, 'machine')
+                        handleSpeak(text, dualResult?.sourceLanguage || 'en', 'original')
                       }
-                      isPlaying={speakingType === 'machine'}
+                      isPlaying={speakingType === 'original'}
                     />
                     <CopyButton
-                      onClick={() => handleCopy(dualResult.machine.translatedText!, 'machine')}
-                      isCopied={copied === 'machine'}
+                      onClick={() => handleCopy(text, 'original')}
+                      isCopied={copied === 'original'}
                     />
                   </div>
                 </div>
-                <div className="result-translated">{dualResult.machine.translatedText}</div>
+                <div className="result-original">{text}</div>
               </div>
-            )}
 
-            {/* LLM Translation - Show if available and configured */}
-            {dualResult.llm.available && (
-              <div className="result-section">
-                <div className="result-section-header">
-                  <span className="result-label">
-                    ✨ AI
-                    {dualResult.llm.model && (
-                      <span className="result-provider">({dualResult.llm.model})</span>
-                    )}
-                  </span>
-                  {dualResult.llm.translatedText && (
+              {/* Machine Translation - Always show if available */}
+              {dualResult.machine.translatedText && (
+                <div className="result-section">
+                  <div className="result-section-header">
+                    <span className="result-label">
+                      ⚡ Machine
+                      {dualResult.machine.provider && (
+                        <span className="result-provider">({dualResult.machine.provider})</span>
+                      )}
+                    </span>
                     <div className="result-actions">
                       <SpeakButton
                         onClick={() =>
-                          handleSpeak(dualResult.llm.translatedText!, targetLanguage, 'llm')
+                          handleSpeak(dualResult.machine.translatedText!, targetLanguage, 'machine')
                         }
-                        isPlaying={speakingType === 'llm'}
+                        isPlaying={speakingType === 'machine'}
                       />
                       <CopyButton
-                        onClick={() => handleCopy(dualResult.llm.translatedText!, 'llm')}
-                        isCopied={copied === 'llm'}
+                        onClick={() => handleCopy(dualResult.machine.translatedText!, 'machine')}
+                        isCopied={copied === 'machine'}
                       />
+                    </div>
+                  </div>
+                  <div className="result-translated">{dualResult.machine.translatedText}</div>
+                </div>
+              )}
+
+              {/* LLM Translation - Show if available and configured */}
+              {dualResult.llm.available && (
+                <div className="result-section">
+                  <div className="result-section-header">
+                    <span className="result-label">
+                      ✨ AI
+                      {dualResult.llm.model && (
+                        <span className="result-provider">({dualResult.llm.model})</span>
+                      )}
+                    </span>
+                    {dualResult.llm.translatedText && (
+                      <div className="result-actions">
+                        <SpeakButton
+                          onClick={() =>
+                            handleSpeak(dualResult.llm.translatedText!, targetLanguage, 'llm')
+                          }
+                          isPlaying={speakingType === 'llm'}
+                        />
+                        <CopyButton
+                          onClick={() => handleCopy(dualResult.llm.translatedText!, 'llm')}
+                          isCopied={copied === 'llm'}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {dualResult.llm.translatedText ? (
+                    <div className="result-translated result-llm">
+                      {dualResult.llm.translatedText}
+                    </div>
+                  ) : dualResult.llm.error ? (
+                    <div className="result-error-inline">{dualResult.llm.error}</div>
+                  ) : (
+                    <div className="result-loading-inline">
+                      <div className="loading-spinner-small" />
+                      <span>AI translating...</span>
                     </div>
                   )}
                 </div>
-                {dualResult.llm.translatedText ? (
-                  <div className="result-translated result-llm">
+              )}
+
+              {/* Show message if LLM not configured */}
+              {!dualResult.llm.available && (
+                <div className="result-hint">
+                  💡 Configure LLM API key in settings for higher quality AI translation
+                </div>
+              )}
+
+              {/* Refine Translation Button */}
+              {dualResult.llm.available && dualResult.llm.translatedText && (
+                <button
+                  className={`refine-toggle ${showRefine ? 'active' : ''}`}
+                  onClick={() => setShowRefine(!showRefine)}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 3l1.912 5.813a2 2 0 001.272 1.278L21 12l-5.816 1.91a2 2 0 00-1.272 1.278L12 21l-1.912-5.812a2 2 0 00-1.272-1.278L3 12l5.816-1.91a2 2 0 001.272-1.277L12 3z" />
+                  </svg>
+                  {showRefine ? 'Close Refine' : 'Refine Translation'}
+                </button>
+              )}
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Refine Modal - Full-screen centered overlay */}
+      {showRefine && dualResult && (
+        <div className="refine-overlay">
+          <div className="refine-modal">
+            {/* Modal Header */}
+            <div className="refine-modal-header">
+              <span className="refine-modal-title">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 3l1.912 5.813a2 2 0 001.272 1.278L21 12l-5.816 1.91a2 2 0 00-1.272 1.278L12 21l-1.912-5.812a2 2 0 00-1.272-1.278L3 12l5.816-1.91a2 2 0 001.272-1.277L12 3z" />
+                </svg>
+                Refine Translation
+              </span>
+              <button
+                className="refine-modal-close"
+                onClick={() => setShowRefine(false)}
+                title="Close"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="refine-modal-body">
+              {/* Two column: Original + Current Translation */}
+              <div className="refine-context">
+                <div className="refine-context-col">
+                  <span className="refine-context-label">Original</span>
+                  <div className="refine-context-text">{text}</div>
+                </div>
+                <div className="refine-context-col">
+                  <span className="refine-context-label refine-context-label-ai">
+                    Current AI Translation
+                  </span>
+                  <div className="refine-context-text refine-context-text-ai">
                     {dualResult.llm.translatedText}
                   </div>
-                ) : dualResult.llm.error ? (
-                  <div className="result-error-inline">{dualResult.llm.error}</div>
-                ) : (
-                  <div className="result-loading-inline">
-                    <div className="loading-spinner-small" />
-                    <span>AI translating...</span>
+                </div>
+              </div>
+
+              {/* Preset Quick Commands */}
+              <div className="refine-presets-row">
+                <span className="refine-presets-label">Quick Refine</span>
+                <div className="refine-presets">
+                  {presetCommands.map((cmd) => (
+                    <button
+                      key={cmd.label}
+                      className="refine-preset-btn"
+                      onClick={() => handleRefine(cmd.instruction)}
+                      disabled={isRefining}
+                    >
+                      {cmd.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conversation History */}
+              <div className="refine-chat-area">
+                {refineMessages.length === 0 && !isRefining && (
+                  <div className="refine-empty">
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      style={{ opacity: 0.3 }}
+                    >
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
+                    <span>Click a preset or type your own instruction below</span>
+                  </div>
+                )}
+                {refineMessages.length > 0 && (
+                  <div className="refine-messages">
+                    {refineMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`refine-msg ${msg.role === 'user' ? 'refine-msg-user' : 'refine-msg-ai'}`}
+                      >
+                        {msg.role === 'assistant' ? (
+                          <>
+                            <div className="refine-msg-ai-header">
+                              <span className="refine-msg-ai-label">Refined</span>
+                              <button
+                                className={`refine-adopt-btn ${adoptedId === msg.id ? 'adopted' : ''}`}
+                                onClick={() => handleAdopt(msg)}
+                              >
+                                {adoptedId === msg.id ? '✓ Adopted' : 'Adopt'}
+                              </button>
+                            </div>
+                            {msg.content}
+                          </>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+                    ))}
+                    {isRefining && (
+                      <div className="refine-loading">
+                        <div className="loading-spinner-small" />
+                        <span>Refining...</span>
+                      </div>
+                    )}
+                    <div ref={refineMessagesEndRef} />
                   </div>
                 )}
               </div>
-            )}
 
-            {/* Show message if LLM not configured */}
-            {!dualResult.llm.available && (
-              <div className="result-hint">
-                💡 Configure LLM API key in settings for higher quality AI translation
+              {/* Error */}
+              {refineError && <div className="refine-error">{refineError}</div>}
+
+              {/* Input Area */}
+              <div className="refine-input-area">
+                <input
+                  type="text"
+                  className="refine-input"
+                  placeholder="Type your refinement instruction..."
+                  value={refineInput}
+                  onChange={(e) => setRefineInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendRefine()
+                    }
+                    e.stopPropagation()
+                  }}
+                  disabled={isRefining}
+                />
+                <button
+                  className="refine-send-btn"
+                  onClick={handleSendRefine}
+                  disabled={isRefining || !refineInput.trim()}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M22 2L11 13" />
+                    <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                  </svg>
+                </button>
               </div>
-            )}
-          </>
-        ) : null}
-      </div>
-    </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

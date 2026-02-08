@@ -321,6 +321,48 @@ export async function batchTranslate(
 }
 
 /**
+ * Refine translation request/response
+ */
+export interface RefineTranslateRequest {
+  originalText: string
+  currentTranslation: string
+  instruction: string
+  history: Array<{ role: 'user' | 'assistant'; content: string }>
+  targetLang: string
+  sourceLang?: string
+  model?: ModelProvider
+  modelId?: string
+}
+
+export interface RefineTranslateResponse {
+  refinedText: string
+  model: string
+}
+
+/**
+ * Refine a translation through multi-turn conversation with LLM
+ */
+export async function refineTranslation(
+  request: RefineTranslateRequest
+): Promise<RefineTranslateResponse> {
+  const { apiKeys, provider, model: selectedModel } = await getUserConfig()
+
+  const result = await apiRequest<RefineTranslateResponse>('/api/translate/refine', 'POST', {
+    originalText: request.originalText,
+    currentTranslation: request.currentTranslation,
+    instruction: request.instruction,
+    history: request.history,
+    targetLang: request.targetLang,
+    sourceLang: request.sourceLang,
+    apiKeys,
+    model: request.model || provider,
+    modelId: request.modelId || selectedModel,
+  })
+
+  return result
+}
+
+/**
  * Request web page translation (batch translation for page texts)
  */
 export async function requestWebPageTranslation(

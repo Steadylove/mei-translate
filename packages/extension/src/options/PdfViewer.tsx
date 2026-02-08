@@ -18,6 +18,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { useTranslate, DualTranslationResult } from '@/hooks/useTranslate'
 import { useTTS } from '@/hooks/useTTS'
+import { useRefine } from '@/hooks/useRefine'
 import Storage from '@/services/storage'
 import {
   ArrowLeft,
@@ -29,6 +30,9 @@ import {
   Volume2,
   Check,
   GripHorizontal,
+  Sparkles,
+  Send,
+  X,
 } from 'lucide-react'
 
 const LANGUAGES = [
@@ -62,8 +66,38 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
 
   const { dualTranslate, isLoading } = useTranslate()
   const { speak, stop, isSpeaking } = useTTS()
+  const {
+    messages: refineMessages,
+    refine,
+    isRefining,
+    error: refineError,
+    reset: resetRefine,
+  } = useRefine()
   const [speakingType, setSpeakingType] = useState<'original' | 'machine' | 'llm' | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Refine state
+  const [showRefine, setShowRefine] = useState(false)
+  const [refineInput, setRefineInput] = useState('')
+  const [adoptedId, setAdoptedId] = useState<string | null>(null)
+  const refineMessagesEndRef = useRef<HTMLDivElement>(null)
+
+  const presetCommands = [
+    {
+      label: 'More Natural',
+      instruction: 'Make the translation more colloquial and natural-sounding',
+    },
+    { label: 'More Formal', instruction: 'Make the translation more formal and professional' },
+    {
+      label: 'More Concise',
+      instruction:
+        'Make the translation more concise, remove redundancy while keeping the core meaning',
+    },
+    {
+      label: 'Keep Terms',
+      instruction: 'Keep all technical terms and proper nouns untranslated, use the original terms',
+    },
+  ]
 
   // Load saved target language
   useEffect(() => {
@@ -221,6 +255,75 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
       setSpeakingType(null)
     }
   }, [isSpeaking])
+
+  // Handle refine request
+  const handleRefine = useCallback(
+    async (instruction: string) => {
+      if (!instruction.trim() || !dualResult) return
+
+      const currentTranslation =
+        dualResult.llm.translatedText || dualResult.machine.translatedText || ''
+
+      const refinedText = await refine(instruction, {
+        originalText: inputText,
+        currentTranslation,
+        targetLang: targetLanguage,
+        sourceLang: dualResult.sourceLanguage,
+      })
+
+      if (refinedText) {
+        setRefineInput('')
+      }
+    },
+    [dualResult, inputText, targetLanguage, refine]
+  )
+
+  const handleSendRefine = useCallback(() => {
+    if (refineInput.trim()) {
+      handleRefine(refineInput)
+    }
+  }, [refineInput, handleRefine])
+
+  const handleAdopt = useCallback(
+    (messageId: string, content: string) => {
+      if (!dualResult) return
+      setAdoptedId(messageId)
+      setDualResult({
+        ...dualResult,
+        llm: {
+          ...dualResult.llm,
+          translatedText: content,
+        },
+      })
+    },
+    [dualResult]
+  )
+
+  // Auto-scroll refine messages
+  useEffect(() => {
+    if (refineMessagesEndRef.current) {
+      refineMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [refineMessages])
+
+  // Reset refine when input text changes
+  useEffect(() => {
+    if (showRefine) {
+      resetRefine()
+      setAdoptedId(null)
+    }
+  }, [inputText]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close refine modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showRefine) {
+        setShowRefine(false)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showRefine])
 
   // Draggable divider handlers
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -583,6 +686,17 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
                     </div>
                   )}
 
+                  {/* Refine Translation Button */}
+                  {dualResult.llm.available && dualResult.llm.translatedText && (
+                    <button
+                      onClick={() => setShowRefine(true)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 bg-teal-50 text-teal-600 border border-dashed border-teal-200 hover:bg-teal-100 hover:border-teal-300"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Refine Translation
+                    </button>
+                  )}
+
                   {/* Hint if no LLM configured */}
                   {!dualResult.llm.available && (
                     <div className="text-xs text-amber-600 bg-amber-50 rounded-lg p-3 border border-amber-100">
@@ -600,6 +714,153 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
           </div>
         </div>
       </div>
+
+      {/* Refine Modal Dialog */}
+      {showRefine && dualResult?.llm.translatedText && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRefine(false)
+          }}
+        >
+          <div className="w-[680px] max-w-[92vw] max-h-[85vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-teal-50 to-cyan-50 border-b border-teal-100">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-teal-600" />
+                <span className="text-sm font-bold text-teal-800">Refine Translation</span>
+              </div>
+              <button
+                onClick={() => setShowRefine(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Context: Original & Current Translation */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Original
+                  </span>
+                  <p className="text-xs text-slate-700 leading-relaxed max-h-24 overflow-y-auto">
+                    {inputText}
+                  </p>
+                </div>
+                <div className="bg-gradient-to-br from-teal-50/60 to-cyan-50/60 rounded-xl p-3 border border-teal-200">
+                  <span className="text-[10px] font-bold text-teal-600 uppercase tracking-wider block mb-1.5">
+                    Current AI Translation
+                  </span>
+                  <p className="text-xs text-slate-700 leading-relaxed max-h-24 overflow-y-auto">
+                    {dualResult.llm.translatedText}
+                  </p>
+                </div>
+              </div>
+
+              {/* Preset Commands */}
+              <div className="flex flex-wrap gap-1.5">
+                {presetCommands.map((cmd) => (
+                  <button
+                    key={cmd.label}
+                    onClick={() => handleRefine(cmd.instruction)}
+                    disabled={isRefining}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-full hover:bg-teal-50 hover:text-teal-600 hover:border-teal-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {cmd.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chat History */}
+              {refineMessages.length > 0 ? (
+                <div className="space-y-2.5 max-h-[40vh] overflow-y-auto pr-1">
+                  {refineMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`rounded-xl text-sm leading-relaxed p-3 ${
+                        msg.role === 'user'
+                          ? 'bg-slate-100 border border-slate-200 text-slate-600 ml-12'
+                          : 'bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 text-slate-700'
+                      }`}
+                    >
+                      {msg.role === 'assistant' ? (
+                        <>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
+                              Refined
+                            </span>
+                            <button
+                              onClick={() => handleAdopt(msg.id, msg.content)}
+                              className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-lg transition-all ${
+                                adoptedId === msg.id
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-teal-100 text-teal-700 hover:bg-teal-500 hover:text-white'
+                              }`}
+                            >
+                              {adoptedId === msg.id ? '✓ Adopted' : 'Adopt'}
+                            </button>
+                          </div>
+                          {msg.content}
+                        </>
+                      ) : (
+                        <>💬 {msg.content}</>
+                      )}
+                    </div>
+                  ))}
+                  {isRefining && (
+                    <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl text-sm text-slate-500">
+                      <div className="w-4 h-4 border-2 border-teal-200 border-t-teal-500 rounded-full animate-spin" />
+                      Refining...
+                    </div>
+                  )}
+                  <div ref={refineMessagesEndRef} />
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-400 text-sm">
+                  Use preset commands or type a custom instruction to refine the translation
+                </div>
+              )}
+
+              {/* Error */}
+              {refineError && (
+                <div className="text-xs text-red-600 bg-red-50 rounded-xl p-3 border border-red-100">
+                  {refineError}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer - Input Area */}
+            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={refineInput}
+                  onChange={(e) => setRefineInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendRefine()
+                    }
+                  }}
+                  placeholder="e.g., make it more natural..."
+                  disabled={isRefining}
+                  className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 disabled:opacity-50 bg-white"
+                />
+                <button
+                  onClick={handleSendRefine}
+                  disabled={isRefining || !refineInput.trim()}
+                  className="px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-xl hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
