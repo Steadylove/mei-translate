@@ -1,17 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "Web Translator",
+  "name": "Mei Lingua",
   "version": "1.0.0",
   "description": "Translate selected text, web pages, and PDF documents",
   "icons": {
     "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
   },
   "permissions": ["storage", "tabs", "contextMenus", "activeTab"],
   "host_permissions": ["<all_urls>"],
   "action": {
-    "default_title": "Web Translator",
+    "default_title": "Mei Lingua",
     "default_icon": "assets/icon48.png",
     "default_popup": "src/popup/index.html"
   },

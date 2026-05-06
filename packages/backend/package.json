@@ -1,7 +1,7 @@
 {
-  "name": "@meitrans/backend",
+  "name": "@meilingua/backend",
   "version": "1.0.0",
-  "description": "AI Translation Agent Backend - Cloudflare Workers",
+  "description": "Mei Lingua Backend - Cloudflare Workers",
   "private": true,
   "type": "module",
   "scripts": {

@@ -202,7 +202,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
             </div>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Mei Trans</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Mei Lingua</h1>
             <p className="text-slate-500">AI-Powered Translation Settings</p>
           </div>
           {saved && (

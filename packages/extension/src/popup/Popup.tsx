@@ -136,7 +136,7 @@ const Popup: React.FC = () => {
             </div>
           </div>
           <div>
-            <h1 className="font-semibold text-base text-slate-800 tracking-tight">Mei Trans</h1>
+            <h1 className="font-semibold text-base text-slate-800 tracking-tight">Mei Lingua</h1>
             <p className="text-xs text-slate-500">AI-Powered Translation</p>
           </div>
         </div>

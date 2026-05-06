@@ -1,7 +1,7 @@
 {
-  "name": "@meitrans/extension",
+  "name": "@meilingua/extension",
   "version": "1.0.0",
-  "description": "Web Translator Chrome Extension",
+  "description": "Mei Lingua Chrome Extension",
   "private": true,
   "type": "module",
   "scripts": {

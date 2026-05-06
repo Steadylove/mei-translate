@@ -8,7 +8,7 @@ set -e
 # 取消代理设置，避免 wrangler 请求被代理拦截
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
 
-echo "🚀 MeiTrans Backend 部署工具"
+echo "🚀 Mei Lingua Backend 部署工具"
 echo "================================"
 
 case "$1" in

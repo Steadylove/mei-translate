@@ -1,4 +1,4 @@
-# AI Translation Agent Backend
+# Mei Lingua Backend
 
 A Cloudflare Workers-based backend for intelligent translation using multiple LLM providers.
 

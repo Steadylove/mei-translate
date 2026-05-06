@@ -1,4 +1,4 @@
-# MeiTrans - AI-Powered Web Translator
+# Mei Lingua - AI-Powered Translation Extension
 
 [中文文档](./README.zh-CN.md)
 
@@ -39,7 +39,7 @@
 ## Architecture
 
 ```
-webtrans-ext/
+mei-lingua/
 ├── packages/
 │   ├── extension/          # Chrome Extension (React + TypeScript + Vite)
 │   │   ├── src/

@@ -1,4 +1,4 @@
-# MeiTrans - AI 驱动的网页翻译插件
+# Mei Lingua - AI 驱动的网页翻译插件
 
 [English](./README.md)
 
@@ -39,7 +39,7 @@
 ## 项目结构
 
 ```
-webtrans-ext/
+mei-lingua/
 ├── packages/
 │   ├── extension/          # Chrome 扩展（React + TypeScript + Vite）
 │   │   ├── src/

@@ -109,7 +109,7 @@ export async function translateWithLingva(
 
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'WebTranslator/1.0',
+      'User-Agent': 'MeiLingua/1.0',
     },
     signal,
   })

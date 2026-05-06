@@ -1,4 +1,4 @@
-# MeiTrans Feature Roadmap
+# Mei Lingua Feature Roadmap
 
 ## 1. AI 对话式翻译润色
 

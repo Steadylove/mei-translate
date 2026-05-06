@@ -68,16 +68,18 @@ function getStyles(): string {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
+      width: 36px;
+      height: 36px;
+      background: #ffffff;
       border: none;
-      border-radius: 10px;
+      border-radius: 50%;
       cursor: pointer;
       pointer-events: auto;
+      overflow: hidden;
       box-shadow:
-        0 3px 12px rgba(13, 148, 136, 0.35),
-        0 0 0 2px rgba(13, 148, 136, 0.12),
+        0 4px 14px rgba(13, 148, 136, 0.28),
+        0 0 0 2px rgba(255, 255, 255, 0.92),
+        0 0 0 4px rgba(13, 148, 136, 0.12),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       animation: buttonPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -100,8 +102,9 @@ function getStyles(): string {
     .trans-button:hover {
       transform: scale(1.1) translateY(-2px);
       box-shadow:
-        0 8px 30px rgba(13, 148, 136, 0.45),
-        0 0 0 4px rgba(13, 148, 136, 0.15),
+        0 8px 26px rgba(13, 148, 136, 0.38),
+        0 0 0 2px rgba(255, 255, 255, 0.95),
+        0 0 0 5px rgba(13, 148, 136, 0.16),
         inset 0 1px 0 rgba(255, 255, 255, 0.25);
     }
 
@@ -110,11 +113,14 @@ function getStyles(): string {
       transition-duration: 0.1s;
     }
 
-    .trans-button svg {
-      width: 16px;
-      height: 16px;
-      fill: white;
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+    .trans-button-icon {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 50%;
+      object-fit: cover;
+      user-select: none;
+      -webkit-user-drag: none;
     }
 
     /* Result Panel */
@@ -1090,7 +1096,7 @@ function initChildFrame() {
  * Main initialization
  */
 function main() {
-  console.log('[MeiTrans] Content script loaded!')
+  console.log('[Mei Lingua] Content script loaded!')
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init)

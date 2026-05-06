@@ -30,7 +30,7 @@ function buildContentScript(mode: string) {
           outDir: 'dist',
           lib: {
             entry: resolve(__dirname, 'src/content/index.tsx'),
-            name: 'WebTransContent',
+            name: 'MeiLinguaContent',
             formats: ['iife'],
             fileName: () => 'content.js',
           },
@@ -169,7 +169,7 @@ function copyAssets() {
       }
 
       // Copy icons
-      const icons = ['icon16.png', 'icon48.png', 'icon128.png']
+      const icons = ['icon16.png', 'icon32.png', 'icon48.png', 'icon128.png']
       icons.forEach((icon) => {
         const src = resolve(__dirname, `public/assets/${icon}`)
         const dest = resolve(__dirname, `dist/assets/${icon}`)

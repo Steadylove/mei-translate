@@ -1,9 +1,9 @@
 /**
- * MeiTrans PDF Selection Script
+ * Mei Lingua PDF Selection Script
  * Listens for text selection in PDF.js viewer and sends to parent window
  */
 (function() {
-  console.log('[MeiTrans PDF] Selection script loaded');
+  console.log('[Mei Lingua PDF] Selection script loaded');
 
   let selectionTimeout = null;
   let lastSentText = '';
@@ -25,9 +25,9 @@
         type: 'pdf-selection',
         text: text
       }, '*');
-      console.log('[MeiTrans PDF] Selection sent:', text.substring(0, 50));
+      console.log('[Mei Lingua PDF] Selection sent:', text.substring(0, 50));
     } catch (e) {
-      console.error('[MeiTrans PDF] Failed to send:', e);
+      console.error('[Mei Lingua PDF] Failed to send:', e);
     }
   }
 
@@ -60,11 +60,11 @@
   // Notify parent that viewer is ready
   if (document.readyState === 'complete') {
     window.parent.postMessage({ type: 'pdf-viewer-ready' }, '*');
-    console.log('[MeiTrans PDF] Viewer ready (immediate)');
+    console.log('[Mei Lingua PDF] Viewer ready (immediate)');
   } else {
     window.addEventListener('load', function() {
       window.parent.postMessage({ type: 'pdf-viewer-ready' }, '*');
-      console.log('[MeiTrans PDF] Viewer ready');
+      console.log('[Mei Lingua PDF] Viewer ready');
     });
   }
 })();

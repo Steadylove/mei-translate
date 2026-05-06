@@ -102,7 +102,7 @@ export function useTranslate(): UseTranslateReturn {
 
   const dualTranslate = useCallback(
     async (text: string, targetLanguage?: string): Promise<DualTranslationResult | null> => {
-      console.log('[MeiTrans] dualTranslate called, text length:', text.length)
+      console.log('[Mei Lingua] dualTranslate called, text length:', text.length)
       setIsLoading(true)
       setIsMachineLoading(true)
       setIsLLMLoading(true)
@@ -114,12 +114,12 @@ export function useTranslate(): UseTranslateReturn {
         const sourceLang = await detectLanguage(text)
         const target = targetLanguage || (sourceLang === 'zh' ? 'en' : 'zh')
 
-        console.log('[MeiTrans] Sending message to background, target:', target)
+        console.log('[Mei Lingua] Sending message to background, target:', target)
         const response = await chrome.runtime.sendMessage({
           type: MessageType.TRANSLATE,
           args: { text, targetLanguage: target, dual: true },
         })
-        console.log('[MeiTrans] Background response:', response)
+        console.log('[Mei Lingua] Background response:', response)
 
         if (response?.error) {
           throw new Error(response.error)

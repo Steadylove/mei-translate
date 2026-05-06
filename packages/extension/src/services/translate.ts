@@ -1,6 +1,6 @@
 /**
  * Translation Service
- * Connects to the AI Translation Agent backend
+ * Connects to the Mei Lingua backend
  * Includes user-configured API keys for LLM translation
  */
 

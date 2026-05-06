@@ -1,5 +1,5 @@
 /**
- * AI Translation Agent - Cloudflare Worker Entry Point
+ * Mei Lingua - Cloudflare Worker Entry Point
  */
 
 import { Hono } from 'hono'
@@ -29,7 +29,7 @@ app.use(
 // Health check
 app.get('/', (c) => {
   return c.json({
-    name: 'AI Translation Agent',
+    name: 'Mei Lingua',
     version: '1.0.0',
     status: 'healthy',
     endpoints: {

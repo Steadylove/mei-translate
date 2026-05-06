@@ -15,7 +15,7 @@ import { MessageType } from '@/types/messages'
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('Web Translator Extension installed')
+  console.log('Mei Lingua Extension installed')
 
   // Initialize default settings
   const settings = await Storage.getAllSettings()
@@ -88,12 +88,12 @@ async function handleMessage(message: { type: MessageType; args?: Record<string,
         targetLanguage: string
         dual?: boolean
       }
-      console.log('[MeiTrans BG] Translate request, dual:', dual, 'text:', text.substring(0, 30))
+      console.log('[Mei Lingua BG] Translate request, dual:', dual, 'text:', text.substring(0, 30))
       // Use dual translation if requested
       if (dual) {
-        console.log('[MeiTrans BG] Using dualTranslate')
+        console.log('[Mei Lingua BG] Using dualTranslate')
         const result = await dualTranslate({ text, targetLanguage })
-        console.log('[MeiTrans BG] dualTranslate result:', result)
+        console.log('[Mei Lingua BG] dualTranslate result:', result)
         return result
       }
       return translate({ text, targetLanguage })
@@ -123,7 +123,7 @@ async function handleMessage(message: { type: MessageType; args?: Record<string,
           targetLang: string
           sourceLang?: string
         }
-      console.log('[MeiTrans BG] Refine request, instruction:', instruction.substring(0, 50))
+      console.log('[Mei Lingua BG] Refine request, instruction:', instruction.substring(0, 50))
       return refineTranslation({
         originalText,
         currentTranslation,

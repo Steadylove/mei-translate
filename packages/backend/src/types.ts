@@ -1,5 +1,5 @@
 /**
- * Type definitions for the AI Translation Agent
+ * Type definitions for Mei Lingua
  */
 
 // All supported model providers
