@@ -10,6 +10,17 @@ export interface FreeTranslateResult {
   provider: 'mymemory' | 'lingva' | 'google-direct'
 }
 
+const PROVIDER_TIMEOUT_MS = 4000
+
+type FreeTranslateProvider = {
+  name: FreeTranslateResult['provider']
+  translate: (signal: AbortSignal) => Promise<FreeTranslateResult>
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
+
 /**
  * Google Translate Direct (unofficial)
  * Fastest option - direct call to Google's translation endpoint
@@ -143,40 +154,46 @@ export async function freeTranslate(
 
   console.log(`[FreeTranslate] Racing providers for: "${text.substring(0, 30)}..."`)
 
-  // Create AbortController to cancel other requests when one succeeds
-  const controller = new AbortController()
-  const { signal } = controller
-
   // Create all translation promises
-  const providers = [
+  const providers: FreeTranslateProvider[] = [
     {
       name: 'google-direct',
-      fn: () => translateWithGoogleDirect(text, srcLang, tgtLang, signal),
+      translate: (signal) => translateWithGoogleDirect(text, srcLang, tgtLang, signal),
     },
     {
       name: 'mymemory',
-      fn: () => translateWithMyMemory(text, srcLang, tgtLang, signal),
+      translate: (signal) => translateWithMyMemory(text, srcLang, tgtLang, signal),
     },
     {
       name: 'lingva',
-      fn: () => translateWithLingva(text, srcLang, tgtLang, signal),
+      translate: (signal) => translateWithLingva(text, srcLang, tgtLang, signal),
     },
   ]
+  const controllers = providers.map(() => new AbortController())
 
   // Wrap each provider to track which one wins
-  const racePromises = providers.map(async (provider) => {
+  const racePromises = providers.map(async (provider, index) => {
+    const controller = controllers[index]
+    const timeoutId = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS)
+
     try {
-      const result = await provider.fn()
+      const result = await provider.translate(controller.signal)
       // This provider won! Abort others
       console.log(`[FreeTranslate] Winner: ${provider.name}, aborting others`)
-      controller.abort()
+      controllers.forEach((c, i) => {
+        if (i !== index) {
+          c.abort()
+        }
+      })
       return result
     } catch (error) {
       // Check if this was an abort (expected for losers)
-      if ((error as Error).name === 'AbortError') {
-        throw new Error(`${provider.name} aborted (another provider won)`)
+      if (isAbortError(error)) {
+        throw new Error(`${provider.name} timed out after ${PROVIDER_TIMEOUT_MS}ms`)
       }
       throw error
+    } finally {
+      clearTimeout(timeoutId)
     }
   })
 

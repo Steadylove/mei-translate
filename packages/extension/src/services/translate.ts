@@ -78,6 +78,8 @@ export interface DetectLanguageResponse {
   confidence: number
 }
 
+type FreeTranslateProvider = 'google-direct' | 'mymemory'
+
 export interface ApiResponse<T> {
   success: boolean
   data?: T
@@ -88,6 +90,154 @@ export interface ApiResponse<T> {
     tokensUsed?: number
     processingTime?: number
   }
+}
+
+const FREE_TRANSLATE_TIMEOUT_MS = 5000
+const FREE_BATCH_CONCURRENCY = 6
+
+function hasConfiguredApiKey(apiKeys: UserApiKeys): boolean {
+  return Object.values(apiKeys).some((key) => key && key.trim().length > 0)
+}
+
+function normalizeFreeLanguageCode(lang?: string, provider?: FreeTranslateProvider): string {
+  if (!lang || lang === 'detect') return provider === 'mymemory' ? 'autodetect' : 'auto'
+
+  const normalized = lang.toLowerCase()
+  if (normalized === 'zh' || normalized === 'zh-cn') {
+    return provider === 'mymemory' ? 'zh-CN' : 'zh-CN'
+  }
+
+  return normalized.split('-')[0]
+}
+
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), FREE_TRANSLATE_TIMEOUT_MS)
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+async function translateWithGoogleDirectClient(
+  text: string,
+  sourceLanguage: string | undefined,
+  targetLanguage: string
+): Promise<{ translatedText: string; sourceLanguage: string; provider: FreeTranslateProvider }> {
+  const source = normalizeFreeLanguageCode(sourceLanguage, 'google-direct')
+  const target = normalizeFreeLanguageCode(targetLanguage, 'google-direct')
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`
+  const response = await fetchWithTimeout(url)
+
+  if (!response.ok) {
+    throw new Error(`Google Direct error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  if (!Array.isArray(data) || !Array.isArray(data[0])) {
+    throw new Error('Invalid Google response format')
+  }
+
+  return {
+    translatedText: data[0].map((item: unknown[]) => item[0]).join(''),
+    sourceLanguage: (data[2] as string | undefined) || sourceLanguage || 'auto',
+    provider: 'google-direct',
+  }
+}
+
+async function translateWithMyMemoryClient(
+  text: string,
+  sourceLanguage: string | undefined,
+  targetLanguage: string
+): Promise<{ translatedText: string; sourceLanguage: string; provider: FreeTranslateProvider }> {
+  const source = normalizeFreeLanguageCode(sourceLanguage, 'mymemory')
+  const target = normalizeFreeLanguageCode(targetLanguage, 'mymemory')
+  const langPair = `${source}|${target}`
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(langPair)}`
+  const response = await fetchWithTimeout(url)
+
+  if (!response.ok) {
+    throw new Error(`MyMemory error: ${response.status}`)
+  }
+
+  const data = (await response.json()) as {
+    responseStatus: number
+    responseData?: {
+      translatedText?: string
+      detectedLanguage?: string
+    }
+    quotaFinished?: boolean
+  }
+
+  if (data.responseStatus !== 200 || !data.responseData?.translatedText) {
+    throw new Error(`MyMemory translation failed: ${data.responseStatus}`)
+  }
+  if (data.quotaFinished) {
+    throw new Error('MyMemory daily quota exceeded')
+  }
+
+  return {
+    translatedText: data.responseData.translatedText,
+    sourceLanguage: data.responseData.detectedLanguage || sourceLanguage || 'auto',
+    provider: 'mymemory',
+  }
+}
+
+async function freeTranslateClient(
+  text: string,
+  sourceLanguage: string | undefined,
+  targetLanguage: string
+): Promise<{ translatedText: string; sourceLanguage: string; provider: FreeTranslateProvider }> {
+  const providers = [
+    translateWithGoogleDirectClient(text, sourceLanguage, targetLanguage),
+    translateWithMyMemoryClient(text, sourceLanguage, targetLanguage),
+  ]
+
+  return new Promise((resolve, reject) => {
+    const errors: string[] = []
+    let failedCount = 0
+
+    providers.forEach((providerPromise) => {
+      providerPromise.then(resolve).catch((error: unknown) => {
+        failedCount += 1
+        errors.push(error instanceof Error ? error.message : String(error))
+
+        if (failedCount === providers.length) {
+          reject(new Error(`Free translation failed: ${errors.join('; ')}`))
+        }
+      })
+    })
+  })
+}
+
+async function freeBatchTranslateClient(
+  texts: string[],
+  sourceLanguage: string | undefined,
+  targetLanguage: string
+): Promise<{ translations: string[]; sourceLanguage: string; provider: FreeTranslateProvider }> {
+  const translations: string[] = []
+  let detectedSource = sourceLanguage || 'auto'
+  let provider: FreeTranslateProvider = 'google-direct'
+
+  for (let i = 0; i < texts.length; i += FREE_BATCH_CONCURRENCY) {
+    const chunk = texts.slice(i, i + FREE_BATCH_CONCURRENCY)
+    const results = await Promise.all(
+      chunk.map((text) => freeTranslateClient(text, sourceLanguage, targetLanguage))
+    )
+
+    for (const result of results) {
+      translations.push(result.translatedText)
+      detectedSource = result.sourceLanguage
+      provider = result.provider
+    }
+  }
+
+  return { translations, sourceLanguage: detectedSource, provider }
 }
 
 /**
@@ -176,6 +326,17 @@ export async function translate(request: TranslateRequest): Promise<TranslateRes
   // Get user's API keys
   const { apiKeys, provider, model: selectedModel } = await getUserConfig()
 
+  if (!hasConfiguredApiKey(apiKeys)) {
+    const result = await freeTranslateClient(text, sourceLanguage, targetLanguage)
+    return {
+      translatedText: result.translatedText,
+      sourceLanguage: result.sourceLanguage,
+      targetLanguage,
+      model: result.provider,
+      cached: false,
+    }
+  }
+
   try {
     const result = await apiRequest<{
       translatedText: string
@@ -223,6 +384,23 @@ export async function dualTranslate(request: TranslateRequest): Promise<DualTran
 
   // Get user's API keys
   const { apiKeys, provider, model: selectedModel } = await getUserConfig()
+
+  if (!hasConfiguredApiKey(apiKeys)) {
+    const result = await freeTranslateClient(text, sourceLanguage, targetLanguage)
+    return {
+      machine: {
+        translatedText: result.translatedText,
+        provider: result.provider,
+      },
+      llm: {
+        translatedText: null,
+        model: null,
+        available: false,
+      },
+      sourceLanguage: result.sourceLanguage,
+      targetLanguage,
+    }
+  }
 
   try {
     const result = await apiRequest<{
@@ -285,6 +463,17 @@ export async function batchTranslate(
 
   // Get user's API keys
   const { apiKeys, provider } = await getUserConfig()
+
+  if (!hasConfiguredApiKey(apiKeys)) {
+    const result = await freeBatchTranslateClient(texts, sourceLanguage, targetLanguage)
+    return {
+      translations: result.translations,
+      sourceLanguage: result.sourceLanguage,
+      targetLanguage,
+      model: result.provider,
+      cachedCount: 0,
+    }
+  }
 
   try {
     const result = await apiRequest<{

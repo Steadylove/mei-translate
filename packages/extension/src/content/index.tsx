@@ -126,19 +126,24 @@ function getStyles(): string {
     /* Result Panel */
     .result-panel {
       position: absolute;
-      min-width: 280px;
-      max-width: 360px;
-      max-height: 400px;
+      width: min(560px, calc(100vw - 24px));
+      aspect-ratio: 16 / 9;
+      min-width: min(360px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
       background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
       border: 1px solid rgba(148, 163, 184, 0.32);
-      border-radius: 18px;
+      border-radius: 22px;
       box-shadow:
         0 18px 52px rgba(15, 23, 42, 0.16),
         0 8px 24px rgba(15, 23, 42, 0.08);
       pointer-events: auto;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
       animation: panelSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      transition: max-height 0.35s ease;
+      transition:
+        width 0.2s ease,
+        max-height 0.35s ease;
     }
 
     @keyframes panelSlide {
@@ -156,7 +161,8 @@ function getStyles(): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 14px;
+      flex: 0 0 auto;
+      padding: 11px 16px;
       background: #ffffff;
       border-bottom: 1px solid rgba(226, 232, 240, 0.9);
       cursor: grab;
@@ -229,8 +235,14 @@ function getStyles(): string {
     }
 
     .result-content {
-      padding: 14px;
-      max-height: 340px;
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-auto-rows: auto;
+      gap: 10px;
+      padding: 12px;
+      overflow-x: hidden;
       overflow-y: auto;
     }
 
@@ -252,7 +264,7 @@ function getStyles(): string {
     }
 
     .result-section {
-      margin-bottom: 12px;
+      margin-bottom: 0;
       animation: sectionFade 0.3s ease-out;
       animation-fill-mode: both;
     }
@@ -280,6 +292,7 @@ function getStyles(): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex: 0 0 auto;
       margin-bottom: 6px;
     }
 
@@ -332,8 +345,8 @@ function getStyles(): string {
     .result-original {
       font-size: 12px;
       color: #334155;
-      line-height: 1.6;
-      padding: 10px 12px;
+      line-height: 1.55;
+      padding: 10px 11px;
       background: #f1f5f9;
       border-radius: 10px;
       border: 1px solid #e2e8f0;
@@ -347,8 +360,8 @@ function getStyles(): string {
     .result-translated {
       font-size: 13px;
       color: #0f172a;
-      line-height: 1.65;
-      padding: 10px 12px;
+      line-height: 1.6;
+      padding: 10px 11px;
       background: #f0fdfa;
       border-radius: 10px;
       border: 1px solid #5eead4;
@@ -365,6 +378,8 @@ function getStyles(): string {
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      grid-column: 1 / -1;
+      height: 100%;
       padding: 28px;
       gap: 12px;
     }
@@ -385,6 +400,7 @@ function getStyles(): string {
     }
 
     .result-error {
+      grid-column: 1 / -1;
       padding: 12px;
       background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
       border-radius: 10px;
@@ -425,14 +441,15 @@ function getStyles(): string {
     .result-hint {
       display: flex;
       align-items: flex-start;
+      grid-column: 1 / -1;
       gap: 8px;
-      padding: 10px 12px;
-      background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
-      border-radius: 8px;
-      color: #854d0e;
+      padding: 9px 11px;
+      background: #fffbeb;
+      border-radius: 12px;
+      color: #92400e;
       font-size: 11px;
-      border: 1px solid #fde047;
-      margin-top: 10px;
+      border: 1px solid #fcd34d;
+      margin-top: 0;
     }
 
     .result-loading-inline {
@@ -667,10 +684,11 @@ function getStyles(): string {
       display: flex;
       align-items: center;
       justify-content: center;
+      grid-column: 1 / -1;
       gap: 6px;
       width: 100%;
       padding: 8px 12px;
-      margin-top: 10px;
+      margin-top: 0;
       background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 100%);
       border: 1px dashed #99f6e4;
       border-radius: 10px;

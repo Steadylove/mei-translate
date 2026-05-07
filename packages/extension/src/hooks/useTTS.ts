@@ -23,6 +23,51 @@ const LANG_MAP: Record<string, string> = {
   vi: 'vi-VN',
 }
 
+const PREFERRED_VOICES: Record<string, string[]> = {
+  zh: [
+    'tingting',
+    'mei-jia',
+    'meijia',
+    'sin-ji',
+    'xiaoxiao',
+    'huihui',
+    'yaoyao',
+    'google 普通话',
+    'google 國語',
+    'google mandarin',
+    'google chinese',
+  ],
+  en: ['samantha', 'daniel', 'alex', 'google us english', 'google uk english', 'microsoft aria'],
+  ja: ['kyoko', 'otoya', 'nanami', 'google 日本語', 'google japanese'],
+  ko: ['yuna', 'google 한국의', 'google korean'],
+  fr: ['amelie', 'thomas', 'google français', 'google french'],
+  de: ['anna', 'google deutsch', 'google german'],
+  es: ['monica', 'jorge', 'paulina', 'google español', 'google spanish'],
+}
+
+function normalizeLang(lang: string): string {
+  if (!lang || lang === 'auto' || lang === 'detect') return 'en-US'
+  return LANG_MAP[lang] || lang
+}
+
+function getLangBase(lang: string): string {
+  return normalizeLang(lang).split('-')[0].toLowerCase()
+}
+
+function getDefaultProsody(lang: string): Required<Pick<TTSOptions, 'rate' | 'pitch' | 'volume'>> {
+  const baseLang = getLangBase(lang)
+
+  if (baseLang === 'zh') {
+    return { rate: 0.88, pitch: 0.95, volume: 1 }
+  }
+
+  if (baseLang === 'ja' || baseLang === 'ko') {
+    return { rate: 0.9, pitch: 0.98, volume: 1 }
+  }
+
+  return { rate: 0.92, pitch: 1, volume: 1 }
+}
+
 export interface TTSOptions {
   lang?: string
   rate?: number // 0.1 - 10, default 1
@@ -58,25 +103,39 @@ export function useTTS(): UseTTSReturn {
       if (!isSupported) return null
 
       const voices = window.speechSynthesis.getVoices()
-      const targetLang = LANG_MAP[lang] || lang
+      if (voices.length === 0) return null
 
-      // Try to find exact match first
-      let voice = voices.find((v) => v.lang === targetLang || v.lang.startsWith(lang + '-'))
+      const targetLang = normalizeLang(lang).toLowerCase()
+      const baseLang = targetLang.split('-')[0]
+      const preferredNames = PREFERRED_VOICES[baseLang] || []
 
-      // Fallback to any voice that starts with the language code
-      if (!voice) {
-        voice = voices.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase()))
-      }
+      const candidates = voices
+        .map((voice) => {
+          const voiceLang = voice.lang.toLowerCase()
+          const voiceName = voice.name.toLowerCase()
+          let score = 0
 
-      // Prefer native/local voices over network voices for better quality
-      const nativeVoices = voices.filter(
-        (v) => !v.localService === false && (v.lang === targetLang || v.lang.startsWith(lang + '-'))
-      )
-      if (nativeVoices.length > 0) {
-        voice = nativeVoices[0]
-      }
+          if (voiceLang === targetLang) score += 100
+          else if (voiceLang.startsWith(`${baseLang}-`)) score += 80
+          else if (voiceLang.startsWith(baseLang)) score += 60
+          else return { voice, score: -1 }
 
-      return voice || null
+          if (voice.localService) score += 25
+
+          const preferredIndex = preferredNames.findIndex((name) => voiceName.includes(name))
+          if (preferredIndex >= 0) {
+            score += 60 - preferredIndex
+          }
+
+          if (voiceName.includes('premium') || voiceName.includes('enhanced')) score += 10
+          if (voiceName.includes('compact')) score -= 20
+
+          return { voice, score }
+        })
+        .filter((candidate) => candidate.score >= 0)
+        .sort((a, b) => b.score - a.score)
+
+      return candidates[0]?.voice || null
     },
     [isSupported]
   )
@@ -89,19 +148,17 @@ export function useTTS(): UseTTSReturn {
       // Stop any current speech
       stop()
 
-      const { lang = 'en', rate = 1, pitch = 1, volume = 1 } = options
+      const { lang = 'en' } = options
+      const defaultProsody = getDefaultProsody(lang)
+      const rate = options.rate ?? defaultProsody.rate
+      const pitch = options.pitch ?? defaultProsody.pitch
+      const volume = options.volume ?? defaultProsody.volume
 
       const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = LANG_MAP[lang] || lang
-      utterance.rate = Math.max(0.1, Math.min(10, rate))
-      utterance.pitch = Math.max(0, Math.min(2, pitch))
+      utterance.lang = normalizeLang(lang)
+      utterance.rate = Math.max(0.5, Math.min(1.5, rate))
+      utterance.pitch = Math.max(0.7, Math.min(1.3, pitch))
       utterance.volume = Math.max(0, Math.min(1, volume))
-
-      // Try to set a good voice
-      const voice = getBestVoice(lang)
-      if (voice) {
-        utterance.voice = voice
-      }
 
       utterance.onstart = () => {
         setIsSpeaking(true)
@@ -118,10 +175,20 @@ export function useTTS(): UseTTSReturn {
 
       utteranceRef.current = utterance
 
-      // Small delay to ensure voices are loaded
-      setTimeout(() => {
+      const speakWithBestVoice = () => {
+        const voice = getBestVoice(lang)
+        if (voice) {
+          utterance.voice = voice
+        }
         window.speechSynthesis.speak(utterance)
-      }, 50)
+      }
+
+      // Some browsers load voices asynchronously; wait briefly to avoid the default robotic voice.
+      if (window.speechSynthesis.getVoices().length === 0) {
+        setTimeout(speakWithBestVoice, 120)
+      } else {
+        speakWithBestVoice()
+      }
     },
     [isSupported, stop, getBestVoice]
   )

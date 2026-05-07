@@ -71,8 +71,8 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
   // Calculate safe position for the panel
   const calculatePosition = useCallback(() => {
     const padding = 12
-    const panelWidth = 360
-    const panelHeight = 280
+    const panelWidth = Math.min(560, window.innerWidth - padding * 2)
+    const panelHeight = Math.round((panelWidth * 9) / 16)
     const buttonSize = 32
 
     let x = position.x + 8
@@ -381,7 +381,6 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
         style={{
           left: `${panelPosition.x}px`,
           top: `${panelPosition.y}px`,
-          maxWidth: '360px',
         }}
       >
         <div
