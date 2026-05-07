@@ -9,6 +9,11 @@ import SelectTrans from './components/SelectTrans'
 import WebTransToolbar from './components/WebTransToolbar'
 import Storage from '@/services/storage'
 
+interface ContextMenuSelection {
+  text: string
+  position: { x: number; y: number }
+}
+
 interface ChromeMessage {
   type: string
   args?: Record<string, unknown>
@@ -20,6 +25,9 @@ const App: React.FC = () => {
   const [webTransAction, setWebTransAction] = useState<string>('')
   const [isBlacklisted, setIsBlacklisted] = useState(false)
   const [targetLanguage, setTargetLanguage] = useState('zh')
+  const [contextMenuSelection, setContextMenuSelection] = useState<ContextMenuSelection | null>(
+    null
+  )
 
   // Check if current site is blacklisted
   useEffect(() => {
@@ -50,6 +58,25 @@ const App: React.FC = () => {
 
   // Listen for messages from background
   useEffect(() => {
+    const getSelectionPosition = () => {
+      const selectedRange = window.getSelection()?.rangeCount
+        ? window.getSelection()?.getRangeAt(0)
+        : null
+      const rect = selectedRange?.getBoundingClientRect()
+
+      if (rect && (rect.width > 0 || rect.height > 0)) {
+        return {
+          x: rect.left + Math.min(rect.width, 240),
+          y: rect.bottom + 8,
+        }
+      }
+
+      return {
+        x: window.innerWidth / 2 - 280,
+        y: Math.max(24, window.innerHeight / 2 - 180),
+      }
+    }
+
     const handleMessage = (event: CustomEvent<ChromeMessage>) => {
       const { type, args } = event.detail
 
@@ -69,8 +96,11 @@ const App: React.FC = () => {
         case 'showResultDialog':
           // Handle right-click translate - show result at center
           if (args?.text) {
-            // This could trigger a modal translation
-            console.log('Show result dialog for:', args.text)
+            clearSelection()
+            setContextMenuSelection({
+              text: String(args.text),
+              position: getSelectionPosition(),
+            })
           }
           break
       }
@@ -80,12 +110,17 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('webtrans-message', handleMessage as EventListener)
     }
-  }, [])
+  }, [clearSelection])
 
   const handleCloseWebTrans = useCallback(() => {
     setShowWebTrans(false)
     setWebTransAction('')
   }, [])
+
+  const handleCloseSelection = useCallback(() => {
+    clearSelection()
+    setContextMenuSelection(null)
+  }, [clearSelection])
 
   // Don't render if blacklisted
   if (isBlacklisted) {
@@ -100,7 +135,17 @@ const App: React.FC = () => {
           text={selection.text}
           position={selection.position}
           targetLanguage={targetLanguage}
-          onClose={clearSelection}
+          onClose={handleCloseSelection}
+        />
+      )}
+
+      {contextMenuSelection && (
+        <SelectTrans
+          text={contextMenuSelection.text}
+          position={contextMenuSelection.position}
+          targetLanguage={targetLanguage}
+          onClose={handleCloseSelection}
+          autoStart
         />
       )}
 

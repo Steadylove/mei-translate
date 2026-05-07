@@ -17,12 +17,19 @@ interface SelectTransProps {
   position: { x: number; y: number }
   targetLanguage: string
   onClose: () => void
+  autoStart?: boolean
 }
 
 type State = 'button' | 'loading' | 'result'
 
-const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguage, onClose }) => {
-  const [state, setState] = useState<State>('button')
+const SelectTrans: React.FC<SelectTransProps> = ({
+  text,
+  position,
+  targetLanguage,
+  onClose,
+  autoStart = false,
+}) => {
+  const [state, setState] = useState<State>(autoStart ? 'loading' : 'button')
   const { dualTranslate, isLoading, error } = useTranslate()
   const { speak, stop, isSpeaking, isSupported: ttsSupported } = useTTS()
   const { messages: refineMessages, refine, isRefining, error: refineError } = useRefine()
@@ -31,6 +38,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
   const [panelPosition, setPanelPosition] = useState(position)
   const [copied, setCopied] = useState<'original' | 'machine' | 'llm' | null>(null)
   const [speakingType, setSpeakingType] = useState<'original' | 'machine' | 'llm' | null>(null)
+  const hasAutoStartedRef = useRef(false)
 
   // Refine state
   const [showRefine, setShowRefine] = useState(false)
@@ -155,6 +163,13 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
     }
     setState('result')
   }, [text, targetLanguage, dualTranslate])
+
+  useEffect(() => {
+    if (!autoStart || hasAutoStartedRef.current) return
+
+    hasAutoStartedRef.current = true
+    handleTranslate()
+  }, [autoStart, handleTranslate])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

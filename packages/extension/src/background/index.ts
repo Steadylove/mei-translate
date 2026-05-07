@@ -30,8 +30,8 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   chrome.contextMenus.create({
     id: 'translate-page',
-    title: 'Translate this page',
-    contexts: ['page'],
+    title: 'Translate full page',
+    contexts: ['page', 'selection'],
   })
 })
 
