@@ -468,7 +468,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
                 <div className="result-section">
                   <div className="result-section-header">
                     <span className="result-label">
-                      ⚡ Machine
+                      Machine
                       {dualResult.machine.provider && (
                         <span className="result-provider">({dualResult.machine.provider})</span>
                       )}
@@ -495,7 +495,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
                 <div className="result-section">
                   <div className="result-section-header">
                     <span className="result-label">
-                      ✨ AI
+                      AI
                       {dualResult.llm.model && (
                         <span className="result-provider">({dualResult.llm.model})</span>
                       )}
@@ -533,7 +533,21 @@ const SelectTrans: React.FC<SelectTransProps> = ({ text, position, targetLanguag
               {/* Show message if LLM not configured */}
               {!dualResult.llm.available && (
                 <div className="result-hint">
-                  💡 Configure LLM API key in settings for higher quality AI translation
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4" />
+                    <path d="M12 8h.01" />
+                  </svg>
+                  <span>Configure LLM API key in settings for higher quality AI translation</span>
                 </div>
               )}
 

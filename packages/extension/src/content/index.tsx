@@ -42,7 +42,7 @@ function prepareShadowDOM() {
  */
 function getStyles(): string {
   return `
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
     :host {
       all: initial;
@@ -55,7 +55,7 @@ function getStyles(): string {
     }
 
     .translator-root {
-      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       line-height: 1.5;
       color: #0f172a;
@@ -77,9 +77,9 @@ function getStyles(): string {
       pointer-events: auto;
       overflow: hidden;
       box-shadow:
-        0 4px 14px rgba(13, 148, 136, 0.28),
+        0 6px 18px rgba(15, 23, 42, 0.14),
         0 0 0 2px rgba(255, 255, 255, 0.92),
-        0 0 0 4px rgba(13, 148, 136, 0.12),
+        0 0 0 4px rgba(13, 148, 136, 0.14),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       animation: buttonPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -102,9 +102,9 @@ function getStyles(): string {
     .trans-button:hover {
       transform: scale(1.1) translateY(-2px);
       box-shadow:
-        0 8px 26px rgba(13, 148, 136, 0.38),
+        0 10px 30px rgba(15, 23, 42, 0.18),
         0 0 0 2px rgba(255, 255, 255, 0.95),
-        0 0 0 5px rgba(13, 148, 136, 0.16),
+        0 0 0 5px rgba(13, 148, 136, 0.18),
         inset 0 1px 0 rgba(255, 255, 255, 0.25);
     }
 
@@ -130,10 +130,11 @@ function getStyles(): string {
       max-width: 360px;
       max-height: 400px;
       background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      border-radius: 18px;
       box-shadow:
-        0 16px 40px rgba(0, 0, 0, 0.12),
-        0 0 0 1px rgba(0, 0, 0, 0.04);
+        0 18px 52px rgba(15, 23, 42, 0.16),
+        0 8px 24px rgba(15, 23, 42, 0.08);
       pointer-events: auto;
       overflow: hidden;
       animation: panelSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -156,21 +157,21 @@ function getStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 10px 14px;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      border-bottom: none;
+      background: #ffffff;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.9);
       cursor: grab;
       user-select: none;
       transition: background 0.2s ease;
     }
 
     .result-header:hover {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      background: #f8fafc;
     }
 
     .result-header:active,
     .result-header.dragging {
       cursor: grabbing;
-      background: linear-gradient(135deg, #334155 0%, #475569 100%);
+      background: #f1f5f9;
     }
 
     .result-header .drag-handle {
@@ -184,7 +185,7 @@ function getStyles(): string {
     .result-header-title {
       font-weight: 600;
       font-size: 12px;
-      color: #ffffff;
+      color: #0f3f3c;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -198,13 +199,13 @@ function getStyles(): string {
       height: 8px;
       background: linear-gradient(135deg, #14b8a6, #06b6d4);
       border-radius: 50%;
-      box-shadow: 0 0 8px rgba(20, 184, 166, 0.6);
+      box-shadow: 0 0 8px rgba(13, 148, 136, 0.24);
       animation: pulse 2s ease-in-out infinite;
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 12px rgba(20, 184, 166, 0.6); }
-      50% { opacity: 0.7; box-shadow: 0 0 20px rgba(20, 184, 166, 0.8); }
+      0%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(13, 148, 136, 0.24); }
+      50% { opacity: 0.75; box-shadow: 0 0 16px rgba(13, 148, 136, 0.34); }
     }
 
     .result-close {
@@ -214,16 +215,16 @@ function getStyles(): string {
       align-items: center;
       justify-content: center;
       border: none;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(13, 148, 136, 0.12);
       cursor: pointer;
       border-radius: 6px;
-      color: rgba(255, 255, 255, 0.7);
+      color: #0f766e;
       transition: all 0.2s ease;
     }
 
     .result-close:hover {
-      background: rgba(255, 255, 255, 0.2);
-      color: #ffffff;
+      background: rgba(13, 148, 136, 0.14);
+      color: #0f766e;
       transform: rotate(90deg);
     }
 
@@ -313,7 +314,7 @@ function getStyles(): string {
 
     .result-copy:hover,
     .result-speak:hover {
-      background: #f1f5f9;
+      background: #e2e8f0;
       color: #0d9488;
       transform: scale(1.1);
     }
@@ -330,7 +331,7 @@ function getStyles(): string {
 
     .result-original {
       font-size: 12px;
-      color: #475569;
+      color: #334155;
       line-height: 1.6;
       padding: 10px 12px;
       background: #f1f5f9;
@@ -348,9 +349,9 @@ function getStyles(): string {
       color: #0f172a;
       line-height: 1.65;
       padding: 10px 12px;
-      background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+      background: #f0fdfa;
       border-radius: 10px;
-      border: 1px solid #99f6e4;
+      border: 1px solid #5eead4;
       transition: all 0.2s ease;
     }
 
@@ -412,8 +413,8 @@ function getStyles(): string {
     }
 
     .result-llm {
-      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-      border: 1px solid #6ee7b7;
+      background: #ecfdf5;
+      border: 1px solid #86efac;
     }
 
     .result-llm:hover {
@@ -422,6 +423,9 @@ function getStyles(): string {
     }
 
     .result-hint {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
       padding: 10px 12px;
       background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
       border-radius: 8px;
@@ -509,7 +513,7 @@ function getStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 14px 18px;
-      background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
+      background: #0f766e;
       flex-shrink: 0;
     }
 
@@ -690,7 +694,7 @@ function getStyles(): string {
     }
 
     .refine-toggle.active {
-      background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
+      background: #0f766e;
       color: white;
       border: 1px solid transparent;
       box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
@@ -777,7 +781,13 @@ function getStyles(): string {
     }
 
     .refine-msg-user::before {
-      content: '💬 ';
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: #14b8a6;
       font-size: 10px;
     }
 
@@ -861,7 +871,7 @@ function getStyles(): string {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
+      background: #0f766e;
       border: none;
       border-radius: 12px;
       cursor: pointer;
@@ -922,13 +932,14 @@ function getStyles(): string {
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+      background: rgba(255, 255, 255, 0.98);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      border-radius: 22px;
       box-shadow:
-        0 10px 40px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(0, 0, 0, 0.03);
+        0 14px 44px rgba(15, 23, 42, 0.14),
+        0 0 0 1px rgba(255, 255, 255, 0.9);
       pointer-events: auto;
       z-index: 2147483647;
       animation: toolbarSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1);
@@ -948,13 +959,13 @@ function getStyles(): string {
     .webtrans-toolbar select {
       padding: 10px 14px;
       padding-right: 32px;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
       font-size: 13px;
-      font-weight: 500;
-      background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+      font-weight: 600;
+      background: rgba(255,255,255,0.9) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
       cursor: pointer;
-      color: #1e293b;
+      color: #0f172a;
       appearance: none;
       transition: all 0.2s ease;
     }
@@ -973,7 +984,7 @@ function getStyles(): string {
     .webtrans-toolbar button {
       padding: 10px 18px;
       border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       cursor: pointer;
       font-size: 13px;
       font-weight: 600;
@@ -981,13 +992,13 @@ function getStyles(): string {
     }
 
     .webtrans-toolbar .btn-primary {
-      background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
+      background: #0f766e;
       color: white;
-      box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
+      box-shadow: 0 6px 18px rgba(15, 118, 110, 0.24);
     }
 
     .webtrans-toolbar .btn-primary:hover {
-      box-shadow: 0 6px 20px rgba(13, 148, 136, 0.45);
+      box-shadow: 0 8px 22px rgba(15, 118, 110, 0.28);
       transform: translateY(-2px);
     }
 
@@ -996,12 +1007,14 @@ function getStyles(): string {
     }
 
     .webtrans-toolbar .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
+      background: rgba(255, 255, 255, 0.92);
+      color: #334155;
+      border: 1px solid rgba(13, 148, 136, 0.24);
     }
 
     .webtrans-toolbar .btn-secondary:hover {
-      background: #e2e8f0;
+      background: #ecfeff;
+      color: #0f766e;
       transform: translateY(-1px);
     }
 

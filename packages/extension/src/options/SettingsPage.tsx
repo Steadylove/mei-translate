@@ -22,7 +22,6 @@ import Storage, {
   PROVIDER_CONFIG,
 } from '@/services/storage'
 import {
-  Languages,
   FileText,
   Trash2,
   Check,
@@ -33,20 +32,20 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  Sparkles,
   Bot,
   Cpu,
+  Zap,
 } from 'lucide-react'
 
 const LANGUAGES = [
-  { value: 'zh', label: '中文', flag: '🇨🇳' },
-  { value: 'en', label: 'English', flag: '🇺🇸' },
-  { value: 'ja', label: '日本語', flag: '🇯🇵' },
-  { value: 'ko', label: '한국어', flag: '🇰🇷' },
-  { value: 'fr', label: 'Français', flag: '🇫🇷' },
-  { value: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { value: 'es', label: 'Español', flag: '🇪🇸' },
-  { value: 'ru', label: 'Русский', flag: '🇷🇺' },
+  { value: 'zh', label: '中文' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' },
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'es', label: 'Español' },
+  { value: 'ru', label: 'Русский' },
 ]
 
 // Provider list with display order
@@ -73,6 +72,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
   const [visibleKeys, setVisibleKeys] = useState<Set<ModelProvider>>(new Set())
   const [selectedProvider, setSelectedProvider] = useState<ModelProvider | null>(null)
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
+  const appIconUrl = chrome.runtime.getURL('assets/icon128.png')
 
   useEffect(() => {
     Storage.getAllSettings().then((s) => {
@@ -179,7 +179,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
 
   if (!settings) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30">
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#fbfffd_0%,#f4fbf8_100%)]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm text-slate-500 font-medium">Loading settings...</span>
@@ -189,21 +189,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20 py-10 px-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#fbfffd_0%,#f4fbf8_100%)] px-6 py-10">
+      <div className="mx-auto max-w-5xl space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-10 animate-slide-up">
-          <div className="relative group">
-            <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-3xl flex items-center justify-center shadow-xl shadow-teal-500/25 transition-all duration-300 group-hover:scale-105 group-hover:rotate-3">
-              <Languages className="w-9 h-9 text-white" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full border-3 border-white flex items-center justify-center shadow-lg">
-              <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
-            </div>
+        <div className="mb-10 flex items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm animate-slide-up">
+          <div className="rounded-[24px] bg-white p-1.5 shadow-sm ring-1 ring-slate-200">
+            <img src={appIconUrl} alt="Mei Lingua" className="h-16 w-16 rounded-3xl" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Mei Lingua</h1>
-            <p className="text-slate-500">AI-Powered Translation Settings</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-950">Mei Lingua</h1>
+            <p className="mt-1 text-sm font-medium text-slate-500">Translation settings</p>
           </div>
           {saved && (
             <div className="ml-auto flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-full text-sm font-medium border border-emerald-100 animate-scale-in">
@@ -214,15 +209,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
         </div>
 
         {/* AI Model Configuration */}
-        <Card className="shadow-sm border-teal-100 bg-gradient-to-br from-white to-teal-50/30 animate-slide-up stagger-1">
+        <Card className="border-slate-200 bg-white shadow-sm animate-slide-up stagger-1">
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2.5 text-slate-800">
-              <div className="p-2 bg-gradient-to-br from-teal-100 to-cyan-100 rounded-xl">
-                <Cpu className="w-5 h-5 text-teal-600" />
+            <CardTitle className="flex items-center gap-2.5 text-slate-950">
+              <div className="rounded-2xl bg-teal-700 p-2 shadow-sm">
+                <Cpu className="w-5 h-5 text-white" />
               </div>
               AI Model Configuration
             </CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardDescription className="text-slate-600">
               Configure your preferred AI model for translation. Add an API key to enable AI
               translation.
             </CardDescription>
@@ -239,12 +234,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
                 return (
                   <div
                     key={provider}
-                    className={`p-4 rounded-xl border transition-all duration-300 hover:shadow-md ${
+                    className={`rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${
                       isSelected
-                        ? 'border-teal-300 bg-gradient-to-br from-teal-50 to-cyan-50 shadow-sm'
+                        ? 'border-teal-300 bg-teal-50 shadow-sm'
                         : hasKey
-                          ? 'border-emerald-200 bg-emerald-50/30'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                          ? 'border-emerald-300 bg-emerald-50/50'
+                          : 'border-slate-200 bg-white hover:border-teal-300'
                     }`}
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
@@ -253,7 +248,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
                         <Bot
                           className={`w-4 h-4 transition-colors ${hasKey ? 'text-emerald-500' : 'text-slate-400'}`}
                         />
-                        <span className="font-medium text-slate-700">{config.name}</span>
+                        <span className="font-semibold text-slate-800">{config.name}</span>
                         {hasKey && (
                           <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
                             Configured
@@ -269,7 +264,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
                         href={config.docsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-slate-400 hover:text-teal-500 flex items-center gap-1 transition-colors"
+                        className="flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors hover:text-teal-700"
                       >
                         Get API Key
                         <ExternalLink className="w-3 h-3" />
@@ -283,7 +278,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
                           value={apiKeys[provider] || ''}
                           onChange={(e) => handleApiKeyChange(provider, e.target.value)}
                           placeholder={config.placeholder}
-                          className="w-full pl-9 pr-10 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition-all font-mono"
+                          className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-10 font-mono text-sm text-slate-800 transition-all placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
                         />
                         <button
                           type="button"
@@ -336,142 +331,143 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
                 <p className="text-xs text-slate-400 mt-1">
                   Add an API key above to enable AI translation.
                 </p>
-                <p className="text-xs text-teal-500 mt-2">
-                  ⚡ Machine translation works without API keys
+                <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-teal-600">
+                  <Zap className="h-3 w-3" />
+                  Machine translation works without API keys
                 </p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* PDF Translation Card */}
-        <Card className="border-slate-200 bg-gradient-to-br from-white to-slate-50 shadow-sm overflow-hidden animate-slide-up stagger-2">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2.5 text-slate-800">
-              <div className="p-2 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl">
-                <FileText className="w-5 h-5 text-slate-600" />
-              </div>
-              PDF Translation
-            </CardTitle>
-            <CardDescription className="text-slate-500">
-              Translate PDF documents with AI-powered selection translation
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={onOpenPdf}
-              size="lg"
-              className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 shadow-lg shadow-teal-500/25 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5"
-            >
-              Open PDF Translator
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Translation Settings */}
-        <Card className="shadow-sm border-slate-200/80 animate-slide-up stagger-3">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2.5">
-              <div className="p-2 bg-slate-100 rounded-xl">
-                <Globe className="w-5 h-5 text-slate-600" />
-              </div>
-              Translation Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 divide-y divide-slate-100">
-            {/* Target Language */}
-            <div className="flex items-center justify-between py-4 transition-colors hover:bg-slate-50/50 -mx-6 px-6">
-              <div>
-                <label className="font-medium text-slate-800">Default Target Language</label>
-                <p className="text-sm text-slate-500 mt-0.5">The language to translate text into</p>
-              </div>
-              <Select
-                value={settings.targetLanguage}
-                onValueChange={(v) => updateSetting('targetLanguage', v)}
+        <div className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+          {/* PDF Translation Card */}
+          <Card className="overflow-hidden border-slate-200 bg-white shadow-sm animate-slide-up stagger-2">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2.5 text-slate-950">
+                <div className="rounded-2xl bg-slate-100 p-2">
+                  <FileText className="w-5 h-5 text-teal-700" />
+                </div>
+                PDF Translation
+              </CardTitle>
+              <CardDescription className="text-slate-600">
+                Translate PDF documents with AI-powered selection translation
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={onOpenPdf}
+                size="lg"
+                className="w-full bg-teal-700 shadow-sm shadow-teal-900/15 transition-all duration-200 hover:-translate-y-0.5 hover:bg-teal-800 hover:shadow-md"
               >
-                <SelectTrigger className="w-36 border-slate-200 hover:border-teal-300 transition-colors">
-                  <SelectValue>
-                    {LANGUAGES.find((l) => l.value === settings.targetLanguage)?.flag}{' '}
-                    {LANGUAGES.find((l) => l.value === settings.targetLanguage)?.label}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.value} value={lang.value}>
-                      <span className="flex items-center gap-2">
-                        <span>{lang.flag}</span>
-                        <span>{lang.label}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                Open PDF Translator
+              </Button>
+            </CardContent>
+          </Card>
 
-            {/* Selection Translation */}
-            <div className="flex items-center justify-between py-4 transition-colors hover:bg-slate-50/50 -mx-6 px-6">
-              <div className="flex items-start gap-3">
-                <div className="p-1.5 bg-blue-50 rounded-lg mt-0.5">
-                  <Type className="w-4 h-4 text-blue-500" />
+          {/* Translation Settings */}
+          <Card className="border-slate-200 bg-white shadow-sm animate-slide-up stagger-3">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2.5">
+                <div className="rounded-2xl bg-slate-100 p-2">
+                  <Globe className="w-5 h-5 text-slate-700" />
                 </div>
+                Translation Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 divide-y divide-slate-100">
+              {/* Target Language */}
+              <div className="-mx-6 flex items-center justify-between px-6 py-4 transition-colors hover:bg-slate-50">
                 <div>
-                  <label className="font-medium text-slate-800">Selection Translation</label>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    Show translate button when selecting text
+                  <label className="font-semibold text-slate-900">Default Target Language</label>
+                  <p className="mt-0.5 text-sm text-slate-600">
+                    The language to translate text into
                   </p>
                 </div>
+                <Select
+                  value={settings.targetLanguage}
+                  onValueChange={(v) => updateSetting('targetLanguage', v)}
+                >
+                  <SelectTrigger className="w-36 border-slate-200 hover:border-teal-300 transition-colors">
+                    <SelectValue>
+                      {LANGUAGES.find((l) => l.value === settings.targetLanguage)?.label}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Switch
-                checked={settings.selectionTransEnabled}
-                onCheckedChange={(v) => updateSetting('selectionTransEnabled', v)}
-                className="data-[state=checked]:bg-teal-500"
-              />
-            </div>
 
-            {/* Page Translation */}
-            <div className="flex items-center justify-between py-4 transition-colors hover:bg-slate-50/50 -mx-6 px-6">
-              <div className="flex items-start gap-3">
-                <div className="p-1.5 bg-emerald-50 rounded-lg mt-0.5">
-                  <Globe className="w-4 h-4 text-emerald-500" />
+              {/* Selection Translation */}
+              <div className="-mx-6 flex items-center justify-between px-6 py-4 transition-colors hover:bg-slate-50">
+                <div className="flex items-start gap-3">
+                  <div className="p-1.5 bg-blue-50 rounded-lg mt-0.5">
+                    <Type className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-900">Selection Translation</label>
+                    <p className="mt-0.5 text-sm text-slate-600">
+                      Show translate button when selecting text
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <label className="font-medium text-slate-800">Page Translation</label>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    Enable full page translation feature
-                  </p>
-                </div>
+                <Switch
+                  checked={settings.selectionTransEnabled}
+                  onCheckedChange={(v) => updateSetting('selectionTransEnabled', v)}
+                  className="data-[state=checked]:bg-teal-500"
+                />
               </div>
-              <Switch
-                checked={settings.webTransEnabled}
-                onCheckedChange={(v) => updateSetting('webTransEnabled', v)}
-                className="data-[state=checked]:bg-teal-500"
-              />
-            </div>
 
-            {/* Auto Speak */}
-            <div className="flex items-center justify-between py-4 transition-colors hover:bg-slate-50/50 -mx-6 px-6">
-              <div className="flex items-start gap-3">
-                <div className="p-1.5 bg-amber-50 rounded-lg mt-0.5">
-                  <Volume2 className="w-4 h-4 text-amber-500" />
+              {/* Page Translation */}
+              <div className="-mx-6 flex items-center justify-between px-6 py-4 transition-colors hover:bg-slate-50">
+                <div className="flex items-start gap-3">
+                  <div className="p-1.5 bg-emerald-50 rounded-lg mt-0.5">
+                    <Globe className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-900">Page Translation</label>
+                    <p className="mt-0.5 text-sm text-slate-600">
+                      Enable full page translation feature
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <label className="font-medium text-slate-800">Auto Speak</label>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    Automatically read translations aloud
-                  </p>
-                </div>
+                <Switch
+                  checked={settings.webTransEnabled}
+                  onCheckedChange={(v) => updateSetting('webTransEnabled', v)}
+                  className="data-[state=checked]:bg-teal-500"
+                />
               </div>
-              <Switch
-                checked={settings.autoSpeak}
-                onCheckedChange={(v) => updateSetting('autoSpeak', v)}
-                className="data-[state=checked]:bg-teal-500"
-              />
-            </div>
-          </CardContent>
-        </Card>
+
+              {/* Auto Speak */}
+              <div className="-mx-6 flex items-center justify-between px-6 py-4 transition-colors hover:bg-slate-50">
+                <div className="flex items-start gap-3">
+                  <div className="p-1.5 bg-amber-50 rounded-lg mt-0.5">
+                    <Volume2 className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-900">Auto Speak</label>
+                    <p className="mt-0.5 text-sm text-slate-600">
+                      Automatically read translations aloud
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={settings.autoSpeak}
+                  onCheckedChange={(v) => updateSetting('autoSpeak', v)}
+                  className="data-[state=checked]:bg-teal-500"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Blacklist */}
-        <Card className="shadow-sm border-slate-200/80 animate-slide-up stagger-4">
+        <Card className="border-slate-200 bg-white shadow-sm animate-slide-up stagger-4">
           <CardHeader className="pb-4">
             <CardTitle>Site Blacklist</CardTitle>
             <CardDescription>Disable translation on these websites (one per line)</CardDescription>

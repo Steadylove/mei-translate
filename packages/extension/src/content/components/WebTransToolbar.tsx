@@ -23,14 +23,14 @@ interface WebTransToolbarProps {
 type TranslationState = 'idle' | 'translating' | 'translated'
 
 const LANGUAGES = [
-  { value: 'zh', label: '🇨🇳 Chinese' },
-  { value: 'en', label: '🇺🇸 English' },
-  { value: 'ja', label: '🇯🇵 Japanese' },
-  { value: 'ko', label: '🇰🇷 Korean' },
-  { value: 'fr', label: '🇫🇷 French' },
-  { value: 'de', label: '🇩🇪 German' },
-  { value: 'es', label: '🇪🇸 Spanish' },
-  { value: 'ru', label: '🇷🇺 Russian' },
+  { value: 'zh', label: 'Chinese' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'ko', label: 'Korean' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'ru', label: 'Russian' },
 ]
 
 const WebTransToolbar: React.FC<WebTransToolbarProps> = ({
@@ -107,7 +107,7 @@ const WebTransToolbar: React.FC<WebTransToolbarProps> = ({
       {/* Action buttons based on state */}
       {state === 'idle' && (
         <button className="btn-primary" onClick={handleTranslate}>
-          ✨ Translate Page
+          Translate Page
         </button>
       )}
 

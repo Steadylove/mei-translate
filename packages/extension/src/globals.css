@@ -1,5 +1,5 @@
 /* Modern Font Import - must be first */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,32 +7,32 @@
 
 @layer base {
   :root {
-    /* New Teal/Cyan Theme */
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    /* Mei Lingua Teal/Cyan Theme */
+    --background: 170 30% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 220 20% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
-    --primary: 174 72% 40%;
+    --primary: 174 66% 32%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 20% 96%;
     --secondary-foreground: 220 15% 25%;
     --muted: 210 20% 96%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 186 94% 41%;
+    --muted-foreground: 215 19% 35%;
+    --accent: 188 72% 38%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 174 72% 40%;
+    --border: 187 30% 82%;
+    --input: 187 30% 82%;
+    --ring: 173 80% 32%;
     --radius: 0.875rem;
 
     /* Custom Colors */
-    --gradient-start: 174 72% 40%;
-    --gradient-end: 186 94% 41%;
-    --glow-color: rgba(20, 184, 166, 0.4);
+    --gradient-start: 174 66% 32%;
+    --gradient-end: 188 72% 38%;
+    --glow-color: rgba(13, 148, 136, 0.24);
   }
 }
 
@@ -43,7 +43,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family:
-      'Space Grotesk',
+      'Plus Jakarta Sans',
       -apple-system,
       BlinkMacSystemFont,
       'Segoe UI',

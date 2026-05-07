@@ -47,7 +47,7 @@ const SelectTrigger = React.forwardRef<
       type="button"
       onClick={() => setOpen(!open)}
       className={cn(
-        'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition-colors placeholder:text-muted-foreground hover:border-teal-200 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       {...props}
@@ -82,10 +82,10 @@ const SelectContent: React.FC<{ children: React.ReactNode; className?: string }>
 
   return (
     <>
-      <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />
       <div
         className={cn(
-          'absolute top-full left-0 z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-60 overflow-y-auto',
+          'absolute top-full left-0 z-[100] mt-1 max-h-60 w-full min-w-[8rem] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1 text-slate-800 shadow-lg shadow-slate-900/10',
           className
         )}
       >
@@ -105,8 +105,8 @@ const SelectItem: React.FC<SelectItemProps> = ({ value, children, className }) =
         setOpen(false)
       }}
       className={cn(
-        'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors',
-        selectedValue === value && 'bg-accent text-accent-foreground',
+        'relative flex w-full cursor-pointer select-none items-center rounded-xl px-3 py-2 text-sm outline-none transition-colors hover:bg-teal-50 hover:text-teal-900',
+        selectedValue === value && 'bg-teal-600 text-white hover:bg-teal-600 hover:text-white',
         className
       )}
     >
