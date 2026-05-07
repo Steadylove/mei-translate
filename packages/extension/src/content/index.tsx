@@ -944,23 +944,32 @@ function getStyles(): string {
     /* Web Translation Toolbar */
     .webtrans-toolbar {
       position: fixed;
-      top: 20px;
-      right: 20px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
+      gap: 8px;
+      padding: 8px 10px;
       background: rgba(255, 255, 255, 0.98);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(148, 163, 184, 0.32);
-      border-radius: 22px;
+      border-radius: 18px;
       box-shadow:
         0 14px 44px rgba(15, 23, 42, 0.14),
         0 0 0 1px rgba(255, 255, 255, 0.9);
       pointer-events: auto;
       z-index: 2147483647;
+      cursor: grab;
       animation: toolbarSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .webtrans-toolbar.dragging {
+      cursor: grabbing;
+      user-select: none;
+    }
+
+    .webtrans-toolbar.collapsed {
+      padding: 0;
+      border-radius: 999px;
     }
 
     @keyframes toolbarSlide {
@@ -974,37 +983,106 @@ function getStyles(): string {
       }
     }
 
-    .webtrans-toolbar select {
-      padding: 10px 14px;
-      padding-right: 32px;
+    .toolbar-select {
+      position: relative;
+      min-width: 96px;
+    }
+
+    .webtrans-toolbar .mode-select {
+      min-width: 112px;
+    }
+
+    .toolbar-select-trigger {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 96px;
+      padding: 7px 10px;
       border: 1px solid #cbd5e1;
-      border-radius: 14px;
-      font-size: 13px;
+      border-radius: 12px;
+      font-size: 12px;
       font-weight: 600;
-      background: rgba(255,255,255,0.9) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+      background: rgba(255, 255, 255, 0.9);
       cursor: pointer;
       color: #0f172a;
-      appearance: none;
       transition: all 0.2s ease;
     }
 
-    .webtrans-toolbar select:hover {
+    .toolbar-select-trigger:hover {
       border-color: #0d9488;
       background-color: #f0fdfa;
     }
 
-    .webtrans-toolbar select:focus {
+    .toolbar-select-trigger:focus {
       outline: none;
       border-color: #0d9488;
       box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
     }
 
+    .toolbar-select-trigger svg {
+      flex: 0 0 auto;
+      color: #0f766e;
+    }
+
+    .toolbar-select-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      min-width: 100%;
+      padding: 6px;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 16px;
+      box-shadow:
+        0 16px 36px rgba(15, 23, 42, 0.16),
+        0 0 0 1px rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      z-index: 2147483647;
+    }
+
+    .mode-select .toolbar-select-menu {
+      left: auto;
+      right: 0;
+    }
+
+    .toolbar-select-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px !important;
+      color: #334155;
+      background: transparent;
+      border-radius: 11px !important;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .toolbar-select-item:hover {
+      color: #0f766e;
+      background: #ecfeff;
+    }
+
+    .toolbar-select-item.selected {
+      color: #0f766e;
+      background: #f0fdfa;
+    }
+
+    .toolbar-select-check {
+      width: 12px;
+      color: #0f766e;
+      font-weight: 700;
+    }
+
     .webtrans-toolbar button {
-      padding: 10px 18px;
+      padding: 7px 11px;
       border: none;
-      border-radius: 14px;
+      border-radius: 12px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       transition: all 0.2s ease;
     }
@@ -1030,6 +1108,10 @@ function getStyles(): string {
       border: 1px solid rgba(13, 148, 136, 0.24);
     }
 
+    .webtrans-toolbar .btn-secondary.compact {
+      padding-inline: 10px;
+    }
+
     .webtrans-toolbar .btn-secondary:hover {
       background: #ecfeff;
       color: #0f766e;
@@ -1037,8 +1119,8 @@ function getStyles(): string {
     }
 
     .webtrans-toolbar .btn-close {
-      width: 34px;
-      height: 34px;
+      width: 28px;
+      height: 28px;
       padding: 0;
       display: flex;
       align-items: center;
@@ -1056,10 +1138,75 @@ function getStyles(): string {
 
     .toolbar-divider {
       width: 1px;
-      height: 28px;
+      height: 22px;
       background: linear-gradient(180deg, transparent 0%, #e2e8f0 50%, transparent 100%);
-      margin: 0 6px;
+      margin: 0 2px;
     }
+
+    .toolbar-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #14b8a6;
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+    }
+
+    .toolbar-dot.loading {
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .toolbar-status {
+      min-width: 88px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .toolbar-icon-button {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      padding: 0 !important;
+      overflow: visible;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.26) !important;
+      border-radius: 999px !important;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
+      cursor: grab !important;
+    }
+
+    .webtrans-toolbar.dragging .toolbar-icon-button {
+      cursor: grabbing !important;
+    }
+
+    .toolbar-icon-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+    }
+
+    .toolbar-icon-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 999px;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .toolbar-icon-status {
+      position: absolute;
+      right: 1px;
+      top: 1px;
+      width: 9px;
+      height: 9px;
+      border: 2px solid #ffffff;
+      border-radius: 999px;
+      background: #14b8a6;
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
   `
 }
 

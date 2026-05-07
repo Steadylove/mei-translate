@@ -556,7 +556,7 @@ export async function refineTranslation(
  */
 export async function requestWebPageTranslation(
   texts: string[],
-  sourceLanguage: string,
+  sourceLanguage: string | undefined,
   targetLanguage: string
 ): Promise<BatchTranslateResponse> {
   return batchTranslate({
