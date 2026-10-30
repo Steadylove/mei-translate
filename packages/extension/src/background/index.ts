@@ -18,6 +18,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   console.log('Mei Lingua Extension installed')
 
   // Initialize default settings
+  await Storage.removeLegacyAISettings()
   const settings = await Storage.getAllSettings()
   await Storage.setMultiple(settings)
 

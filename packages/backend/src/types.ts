@@ -13,7 +13,7 @@ export type ModelProvider =
   | 'zhipu'
   | 'groq'
 
-// User-provided API keys (from frontend settings)
+// Internal server-managed provider credentials. Never expose these to the extension.
 export interface UserApiKeys {
   openai?: string
   claude?: string
@@ -25,13 +25,18 @@ export interface UserApiKeys {
   groq?: string
 }
 
-// Environment bindings (user provides API keys via request)
+// Environment bindings
 export interface Env {
   // KV Namespace
   TRANSLATION_CACHE: KVNamespace
 
   // D1 Database
   DB: D1Database
+
+  // Server-side AI configuration. The key must never be sent by the extension.
+  DEEPSEEK_API_KEY?: string
+  // Optional server-side web search configuration. The key must never be sent by the extension.
+  TAVILY_API_KEY?: string
 
   // Configuration
   CORS_ORIGIN?: string
@@ -43,9 +48,6 @@ export interface TranslateRequest {
   targetLang: string
   sourceLang?: string
   context?: PageContext
-  model?: ModelProvider
-  modelId?: string // Specific model ID (e.g., 'gpt-4o-mini')
-  apiKeys?: UserApiKeys // User-provided API keys
   useCache?: boolean
   useMemory?: boolean
 }
@@ -66,8 +68,6 @@ export interface BatchTranslateRequest {
   targetLang: string
   sourceLang?: string
   context?: PageContext
-  model?: ModelProvider
-  apiKeys?: UserApiKeys
 }
 
 export interface BatchTranslateResponse {
@@ -94,8 +94,6 @@ export interface SummaryRequest {
   targetLang?: string
   maxLength?: number
   includeKeyPoints?: boolean
-  apiKeys?: UserApiKeys
-  model?: ModelProvider
 }
 
 export interface SummaryResponse {
@@ -124,6 +122,46 @@ export interface ContextAnalysisRequest {
 export interface ContextAnalysisResponse {
   context: PageContext
   confidence: number
+}
+
+export interface ReadingExplainRequest {
+  text: string
+  targetLang: string
+  context?: PageContext
+}
+
+export interface ReadingExplainResponse {
+  explanation: string
+  termExplanations: Array<{ term: string; explanation: string }>
+}
+
+export interface ReadingAskRequest {
+  text: string
+  question: string
+  targetLang: string
+  context?: PageContext
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+
+export interface ReadingAskResponse {
+  answer: string
+}
+
+export interface ReadingSearchRequest {
+  text: string
+  context?: PageContext
+}
+
+export interface ReadingSearchResult {
+  title: string
+  url: string
+  domain: string
+  content: string
+}
+
+export interface ReadingSearchResponse {
+  answer?: string
+  results: ReadingSearchResult[]
 }
 
 // Translation memory
@@ -165,9 +203,10 @@ export interface RefineRequest {
   history: Array<{ role: 'user' | 'assistant'; content: string }>
   targetLang: string
   sourceLang?: string
+}
+
+export interface InternalRefineRequest extends RefineRequest {
   apiKeys: UserApiKeys
-  model?: ModelProvider
-  modelId?: string
 }
 
 // LLM Message format

@@ -1,6 +1,6 @@
 /**
  * Translation API Routes
- * Supports user-provided API keys from request body
+ * Uses the server-managed DeepSeek model for all LLM operations.
  */
 
 import { Hono } from 'hono'
@@ -10,52 +10,48 @@ import type {
   BatchTranslateRequest,
   RefineRequest,
   ApiResponse,
-  UserApiKeys,
-  ModelProvider,
 } from '../types'
 import {
-  translateWithUserKeys,
+  translateWithServerKey,
   translateBatch,
   detectLanguage,
   saveToMemory,
   refineTranslation,
 } from '../agents/translator'
 import { freeTranslate, detectLanguage as freeDetectLanguage } from '../providers/free-translate'
-import { getFirstAvailableProvider, PROVIDER_CONFIG } from '../providers'
+import {
+  getFirstAvailableProvider,
+  getServerApiKeys,
+  PROVIDER_CONFIG,
+  SERVER_MODEL,
+  SERVER_MODEL_ID,
+} from '../providers'
 
 export const translateRoute = new Hono<{ Bindings: Env }>()
 
 /**
  * GET /api/translate/providers
- * Get all available LLM providers and their models
+ * Get the server-managed LLM provider and model
  */
 translateRoute.get('/providers', async (c) => {
   return c.json<ApiResponse<typeof PROVIDER_CONFIG>>({
     success: true,
-    data: PROVIDER_CONFIG,
+    data: { [SERVER_MODEL]: PROVIDER_CONFIG[SERVER_MODEL] } as typeof PROVIDER_CONFIG,
   })
 })
 
 /**
  * POST /api/translate
- * Translate a single text using user-provided API key
+ * Translate a single text using the server-managed DeepSeek model
  */
 translateRoute.post('/', async (c) => {
   const startTime = Date.now()
 
   try {
     const body = await c.req.json<TranslateRequest>()
-    const {
-      text,
-      targetLang,
-      sourceLang,
-      context,
-      model,
-      modelId,
-      apiKeys,
-      useCache = true,
-      useMemory = true,
-    } = body
+    const { text, targetLang, sourceLang, context, useCache = true, useMemory = true } = body
+
+    const serverApiKeys = getServerApiKeys(c.env)
 
     if (!text || !targetLang) {
       return c.json<ApiResponse<null>>(
@@ -67,22 +63,19 @@ translateRoute.post('/', async (c) => {
       )
     }
 
-    // Check if user has configured any API key
-    if (!apiKeys || !getFirstAvailableProvider(apiKeys)) {
+    if (!getFirstAvailableProvider(serverApiKeys)) {
       return c.json<ApiResponse<null>>(
         {
           success: false,
-          error: 'No API key configured. Please add an API key in settings.',
+          error: 'Server DeepSeek API key is not configured.',
         },
-        400
+        503
       )
     }
 
-    const result = await translateWithUserKeys(c.env, text, targetLang, apiKeys, {
+    const result = await translateWithServerKey(c.env, text, targetLang, serverApiKeys, {
       sourceLang,
       context,
-      model,
-      modelId,
       useCache,
       useMemory,
     })
@@ -133,7 +126,8 @@ translateRoute.post('/batch', async (c) => {
 
   try {
     const body = await c.req.json<BatchTranslateRequest>()
-    const { texts, targetLang, sourceLang, context, model, apiKeys } = body
+    const { texts, targetLang, sourceLang, context } = body
+    const serverApiKeys = getServerApiKeys(c.env)
 
     if (!texts || !Array.isArray(texts) || texts.length === 0 || !targetLang) {
       return c.json<ApiResponse<null>>(
@@ -155,21 +149,19 @@ translateRoute.post('/batch', async (c) => {
       )
     }
 
-    // Check if user has configured any API key
-    if (!apiKeys || !getFirstAvailableProvider(apiKeys)) {
+    if (!getFirstAvailableProvider(serverApiKeys)) {
       return c.json<ApiResponse<null>>(
         {
           success: false,
-          error: 'No API key configured. Please add an API key in settings.',
+          error: 'Server DeepSeek API key is not configured.',
         },
-        400
+        503
       )
     }
 
-    const result = await translateBatch(c.env, texts, targetLang, apiKeys, {
+    const result = await translateBatch(c.env, texts, targetLang, serverApiKeys, {
       sourceLang,
       context,
-      model,
     })
 
     const processingTime = Date.now() - startTime
@@ -296,7 +288,8 @@ translateRoute.post('/dual', async (c) => {
 
   try {
     const body = await c.req.json<TranslateRequest>()
-    const { text, targetLang, sourceLang, context, model, modelId, apiKeys } = body
+    const { text, targetLang, sourceLang, context } = body
+    const serverApiKeys = getServerApiKeys(c.env)
 
     if (!text || !targetLang) {
       return c.json<ApiResponse<null>>(
@@ -308,15 +301,9 @@ translateRoute.post('/dual', async (c) => {
       )
     }
 
-    // Check if user has LLM configured
-    const hasLLMConfig = apiKeys && getFirstAvailableProvider(apiKeys)
+    const hasLLMConfig = getFirstAvailableProvider(serverApiKeys)
 
-    console.log(
-      '[Dual] LLM configured:',
-      !!hasLLMConfig,
-      'keys:',
-      apiKeys ? Object.keys(apiKeys).filter((k) => apiKeys[k as keyof UserApiKeys]) : []
-    )
+    console.log('[Dual] LLM configured:', !!hasLLMConfig, 'model:', SERVER_MODEL_ID)
 
     // Start both translations in parallel
     const machineTranslatePromise = freeTranslate(text, sourceLang || 'auto', targetLang).catch(
@@ -329,11 +316,9 @@ translateRoute.post('/dual', async (c) => {
 
     // Only run LLM translation if configured
     const llmTranslatePromise = hasLLMConfig
-      ? translateWithUserKeys(c.env, text, targetLang, apiKeys!, {
+      ? translateWithServerKey(c.env, text, targetLang, serverApiKeys, {
           sourceLang,
           context,
-          model,
-          modelId,
           useCache: true,
           useMemory: true,
         }).catch((err) => {
@@ -341,7 +326,7 @@ translateRoute.post('/dual', async (c) => {
           return {
             error: err.message,
             translatedText: null,
-            model: null as ModelProvider | null,
+            model: null,
           }
         })
       : Promise.resolve(null)
@@ -403,17 +388,9 @@ translateRoute.post('/refine', async (c) => {
 
   try {
     const body = await c.req.json<RefineRequest>()
-    const {
-      originalText,
-      currentTranslation,
-      instruction,
-      history,
-      targetLang,
-      sourceLang,
-      apiKeys,
-      model,
-      modelId,
-    } = body
+    const { originalText, currentTranslation, instruction, history, targetLang, sourceLang } = body
+
+    const serverApiKeys = getServerApiKeys(c.env)
 
     if (!originalText || !currentTranslation || !instruction || !targetLang) {
       return c.json<ApiResponse<null>>(
@@ -426,13 +403,13 @@ translateRoute.post('/refine', async (c) => {
       )
     }
 
-    if (!apiKeys || !getFirstAvailableProvider(apiKeys)) {
+    if (!getFirstAvailableProvider(serverApiKeys)) {
       return c.json<ApiResponse<null>>(
         {
           success: false,
-          error: 'No API key configured. Please add an API key in settings.',
+          error: 'Server DeepSeek API key is not configured.',
         },
-        400
+        503
       )
     }
 
@@ -443,9 +420,7 @@ translateRoute.post('/refine', async (c) => {
       history: history || [],
       targetLang,
       sourceLang,
-      apiKeys,
-      model,
-      modelId,
+      apiKeys: serverApiKeys,
     })
 
     const processingTime = Date.now() - startTime

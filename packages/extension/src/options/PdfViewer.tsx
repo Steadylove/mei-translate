@@ -54,6 +54,7 @@ interface PdfViewerProps {
 const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
   const [pdfUrl, setPdfUrl] = useState(initialUrl || '')
   const [targetLanguage, setTargetLanguage] = useState('zh')
+  const [autoSpeak, setAutoSpeak] = useState(false)
   const [continuousMode, setContinuousMode] = useState(false)
   const [inputText, setInputText] = useState('')
   const [dualResult, setDualResult] = useState<DualTranslationResult | null>(null)
@@ -75,6 +76,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
     reset: resetRefine,
   } = useRefine()
   const [speakingType, setSpeakingType] = useState<'original' | 'machine' | 'llm' | null>(null)
+  const autoSpokenKeyRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const appIconUrl = chrome.runtime.getURL('assets/icon128.png')
 
@@ -103,7 +105,24 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
 
   // Load saved target language
   useEffect(() => {
-    Storage.get('targetLanguage', 'zh').then(setTargetLanguage)
+    Storage.getMultiple(['targetLanguage', 'autoSpeak']).then((settings) => {
+      setTargetLanguage(settings.targetLanguage)
+      setAutoSpeak(settings.autoSpeak)
+    })
+  }, [])
+
+  useEffect(() => {
+    const handleStorageChange = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      areaName: string
+    ) => {
+      if (areaName === 'sync' && changes.autoSpeak) {
+        setAutoSpeak(changes.autoSpeak.newValue === true)
+      }
+    }
+
+    chrome.storage.onChanged.addListener(handleStorageChange)
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange)
   }, [])
 
   // Show notification
@@ -257,6 +276,20 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ initialUrl, onBack }) => {
       setSpeakingType(null)
     }
   }, [isSpeaking])
+
+  // Respect the Auto Speak setting for the first successful translation.
+  useEffect(() => {
+    if (!autoSpeak || !dualResult) return
+
+    const translatedText = dualResult.llm.translatedText || dualResult.machine.translatedText
+    if (!translatedText) return
+
+    const key = `${inputText}\u0000${targetLanguage}\u0000${translatedText}`
+    if (autoSpokenKeyRef.current === key) return
+
+    autoSpokenKeyRef.current = key
+    handleSpeak(translatedText, targetLanguage, dualResult.llm.translatedText ? 'llm' : 'machine')
+  }, [autoSpeak, dualResult, handleSpeak, inputText, targetLanguage])
 
   // Handle refine request
   const handleRefine = useCallback(

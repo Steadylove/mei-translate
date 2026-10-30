@@ -3,14 +3,9 @@
  */
 
 import { Hono } from 'hono'
-import type {
-  Env,
-  ContextAnalysisRequest,
-  ApiResponse,
-  ContextAnalysisResponse,
-  UserApiKeys,
-} from '../types'
+import type { Env, ContextAnalysisRequest, ApiResponse, ContextAnalysisResponse } from '../types'
 import { analyzeContext, quickContextDetection } from '../agents/context'
+import { getServerApiKeys } from '../providers'
 
 export const contextRoute = new Hono<{ Bindings: Env }>()
 
@@ -22,8 +17,8 @@ contextRoute.post('/', async (c) => {
   const startTime = Date.now()
 
   try {
-    const body = await c.req.json<ContextAnalysisRequest & { apiKeys?: UserApiKeys }>()
-    const { content, url, title, apiKeys = {} } = body
+    const body = await c.req.json<ContextAnalysisRequest>()
+    const { content, url, title } = body
 
     if (!content) {
       return c.json<ApiResponse<null>>(
@@ -35,7 +30,7 @@ contextRoute.post('/', async (c) => {
       )
     }
 
-    const result = await analyzeContext(c.env, content, apiKeys, url, title)
+    const result = await analyzeContext(c.env, content, getServerApiKeys(c.env), url, title)
 
     return c.json<ApiResponse<ContextAnalysisResponse>>({
       success: true,

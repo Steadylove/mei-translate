@@ -125,6 +125,13 @@ export function useTranslate(): UseTranslateReturn {
           throw new Error(response.error)
         }
 
+        const hasMachineTranslation = Boolean(response?.machine?.translatedText)
+        const hasLLMTranslation = Boolean(response?.llm?.translatedText)
+        const hasSingleTranslation = Boolean(response?.translatedText)
+        if (!hasMachineTranslation && !hasLLMTranslation && !hasSingleTranslation) {
+          throw new Error(response?.machine?.error || response?.llm?.error || 'Translation failed')
+        }
+
         // If response has dual format
         if (response.machine !== undefined) {
           const dualTranslationResult: DualTranslationResult = {
@@ -136,7 +143,7 @@ export function useTranslate(): UseTranslateReturn {
 
           setDualResult(dualTranslationResult)
           setIsMachineLoading(false)
-          setIsLLMLoading(!response.llm?.available)
+          setIsLLMLoading(Boolean(response.llm?.available && !response.llm?.translatedText))
 
           return dualTranslationResult
         }

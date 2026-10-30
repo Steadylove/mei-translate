@@ -1,11 +1,11 @@
 # Mei Lingua Backend
 
-A Cloudflare Workers-based backend for intelligent translation using multiple LLM providers.
+A Cloudflare Workers-based backend for translation and Reading Agent assistance.
 
 ## Features
 
-- 🌐 **Multi-Model Support**: OpenAI GPT-4o-mini, Claude Haiku, DeepSeek
-- 🧠 **Smart Model Routing**: Automatically selects the best model based on content
+- 🌐 **Server-Managed AI**: DeepSeek Chat is used for translation and Reading Agent features
+- 🧠 **Fixed Model**: Uses the server-managed DeepSeek Chat model
 - 💾 **Translation Memory**: D1 database for caching and learning
 - ⚡ **KV Caching**: Fast response for repeated translations
 - 📊 **Context-Aware**: Analyzes page type for appropriate translation style
@@ -41,13 +41,22 @@ wrangler d1 create webtrans-memory
 
 2. Update `wrangler.toml` with the IDs from step 1.
 
-3. Set up API keys:
+3. Set the server-side DeepSeek key:
 
 ```bash
-wrangler secret put OPENAI_API_KEY
-wrangler secret put ANTHROPIC_API_KEY
 wrangler secret put DEEPSEEK_API_KEY
 ```
+
+To enable the explicit “Search web” action in the Reading Agent, also configure Tavily:
+
+```bash
+wrangler secret put TAVILY_API_KEY
+```
+
+Without this optional secret, the Reading Agent continues to support translation, explanations,
+and follow-up questions while the search action returns a clear configuration error.
+
+The extension never sends or stores an LLM API key. Provider and model selection are fixed on the server.
 
 4. Run database migrations:
 
@@ -90,7 +99,6 @@ Translate a single text.
     "type": "technical",
     "tone": "formal"
   },
-  "model": "deepseek",
   "useCache": true,
   "useMemory": true
 }
@@ -142,6 +150,21 @@ Quick context detection using URL/title heuristics (no LLM call).
   "title": "Repository"
 }
 ```
+
+### Reading Agent
+
+#### POST /api/reading/explain
+
+Explain selected text using the server-managed DeepSeek model and hidden page context.
+
+#### POST /api/reading/ask
+
+Ask a follow-up question about selected text and page context.
+
+#### POST /api/reading/search
+
+Search the web after the reader explicitly clicks “Search web”. This endpoint requires the
+optional server-side `TAVILY_API_KEY` secret and returns up to three source links.
 
 ### Summary
 
@@ -205,11 +228,9 @@ Get translation memory statistics.
 
 ## Cost Estimation
 
-| Provider | Model          | Cost per 1K tokens |
-| -------- | -------------- | ------------------ |
-| OpenAI   | gpt-4o-mini    | $0.00015           |
-| Claude   | claude-3-haiku | $0.00025           |
-| DeepSeek | deepseek-chat  | $0.00014           |
+| Provider | Model         | Cost per 1K tokens           |
+| -------- | ------------- | ---------------------------- |
+| DeepSeek | deepseek-chat | See current DeepSeek pricing |
 
 With caching and memory, expect 30-50% cost savings.
 

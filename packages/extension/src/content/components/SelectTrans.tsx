@@ -11,6 +11,12 @@ import { useTranslate, DualTranslationResult } from '@/hooks/useTranslate'
 import { useTTS } from '@/hooks/useTTS'
 import { useRefine, RefineMessage } from '@/hooks/useRefine'
 import { getShadowRoot } from '../index'
+import {
+  askAboutSelection,
+  explainSelection,
+  PageContext,
+  searchSelection,
+} from '@/services/translate'
 
 interface SelectTransProps {
   text: string
@@ -18,6 +24,8 @@ interface SelectTransProps {
   targetLanguage: string
   onClose: () => void
   autoStart?: boolean
+  autoSpeak?: boolean
+  pageContext?: PageContext
 }
 
 type State = 'button' | 'loading' | 'result'
@@ -28,17 +36,39 @@ const SelectTrans: React.FC<SelectTransProps> = ({
   targetLanguage,
   onClose,
   autoStart = false,
+  autoSpeak = false,
+  pageContext,
 }) => {
   const [state, setState] = useState<State>(autoStart ? 'loading' : 'button')
   const { dualTranslate, isLoading, error } = useTranslate()
   const { speak, stop, isSpeaking, isSupported: ttsSupported } = useTTS()
   const { messages: refineMessages, refine, isRefining, error: refineError } = useRefine()
   const [dualResult, setDualResult] = useState<DualTranslationResult | null>(null)
+  const [readingExplanation, setReadingExplanation] = useState<{
+    explanation: string
+    termExplanations: Array<{ term: string; explanation: string }>
+  } | null>(null)
+  const [isExplaining, setIsExplaining] = useState(false)
+  const [readingError, setReadingError] = useState<string | null>(null)
+  const [questionInput, setQuestionInput] = useState('')
+  const [askMessages, setAskMessages] = useState<
+    Array<{ role: 'user' | 'assistant'; content: string }>
+  >([])
+  const [isAsking, setIsAsking] = useState(false)
+  const [askError, setAskError] = useState<string | null>(null)
+  const [searchAnswer, setSearchAnswer] = useState<string | undefined>()
+  const [searchResults, setSearchResults] = useState<
+    Array<{ title: string; url: string; domain: string; content: string }>
+  >([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [hasSearched, setHasSearched] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const [panelPosition, setPanelPosition] = useState(position)
   const [copied, setCopied] = useState<'original' | 'machine' | 'llm' | null>(null)
   const [speakingType, setSpeakingType] = useState<'original' | 'machine' | 'llm' | null>(null)
   const hasAutoStartedRef = useRef(false)
+  const autoSpokenKeyRef = useRef<string | null>(null)
 
   // Refine state
   const [showRefine, setShowRefine] = useState(false)
@@ -240,6 +270,91 @@ const SelectTrans: React.FC<SelectTransProps> = ({
     },
     [speak, stop, isSpeaking, speakingType]
   )
+
+  // Respect the Auto Speak setting for the first successful translation.
+  useEffect(() => {
+    if (!autoSpeak || !dualResult) return
+
+    const translatedText = dualResult.llm.translatedText || dualResult.machine.translatedText
+    if (!translatedText) return
+
+    const key = `${text}\u0000${targetLanguage}\u0000${translatedText}`
+    if (autoSpokenKeyRef.current === key) return
+
+    autoSpokenKeyRef.current = key
+    handleSpeak(translatedText, targetLanguage, dualResult.llm.translatedText ? 'llm' : 'machine')
+  }, [autoSpeak, dualResult, handleSpeak, targetLanguage, text])
+
+  // Explain the selection with the hidden page context after translation arrives.
+  useEffect(() => {
+    if (!dualResult) return
+
+    let cancelled = false
+    setIsExplaining(true)
+    setReadingError(null)
+    explainSelection(text, targetLanguage, pageContext)
+      .then((result) => {
+        if (!cancelled) setReadingExplanation(result)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setReadingError(err instanceof Error ? err.message : 'Reading explanation failed')
+          setReadingExplanation(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsExplaining(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [dualResult, pageContext, targetLanguage, text])
+
+  const handleAsk = useCallback(async () => {
+    const question = questionInput.trim()
+    if (!question || isAsking) return
+
+    setQuestionInput('')
+    setAskError(null)
+    setIsAsking(true)
+    setAskMessages((messages) => [...messages, { role: 'user', content: question }])
+
+    try {
+      const result = await askAboutSelection(
+        text,
+        question,
+        targetLanguage,
+        pageContext,
+        askMessages
+      )
+      setAskMessages((messages) => [...messages, { role: 'assistant', content: result.answer }])
+    } catch (err) {
+      setAskError(err instanceof Error ? err.message : 'Follow-up failed')
+    } finally {
+      setIsAsking(false)
+    }
+  }, [askMessages, isAsking, pageContext, questionInput, targetLanguage, text])
+
+  const handleSearch = useCallback(async () => {
+    if (isSearching) return
+
+    setHasSearched(true)
+    setSearchError(null)
+    setSearchAnswer(undefined)
+    setSearchResults([])
+    setIsSearching(true)
+
+    try {
+      const result = await searchSelection(text, pageContext)
+      setSearchAnswer(result.answer)
+      setSearchResults(result.results)
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Web search failed')
+    } finally {
+      setIsSearching(false)
+    }
+  }, [isSearching, pageContext, text])
 
   // Handle refine request
   const handleRefine = useCallback(
@@ -544,6 +659,128 @@ const SelectTrans: React.FC<SelectTransProps> = ({
                 </div>
               )}
 
+              {/* Reading Agent explanation */}
+              {(isExplaining || readingExplanation || readingError) && (
+                <div className="result-section reading-explanation">
+                  <div className="result-section-header">
+                    <span className="result-label">Understand</span>
+                  </div>
+                  {isExplaining ? (
+                    <div className="result-loading-inline">
+                      <div className="loading-spinner-small" />
+                      <span>Understanding in page context...</span>
+                    </div>
+                  ) : readingError ? (
+                    <div className="result-error-inline">{readingError}</div>
+                  ) : readingExplanation ? (
+                    <>
+                      <div className="result-translated">{readingExplanation.explanation}</div>
+                      {readingExplanation.termExplanations.length > 0 && (
+                        <div className="reading-terms">
+                          {readingExplanation.termExplanations.map((item) => (
+                            <div key={`${item.term}-${item.explanation}`} className="reading-term">
+                              <strong>{item.term}</strong>
+                              <span>{item.explanation}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              )}
+
+              <div className="result-section reading-search">
+                <div className="result-section-header">
+                  <span className="result-label">查一下</span>
+                  <button
+                    className="reading-search-button"
+                    onClick={() => void handleSearch()}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? 'Searching...' : 'Search web'}
+                  </button>
+                </div>
+                {isSearching ? (
+                  <div className="result-loading-inline">
+                    <div className="loading-spinner-small" />
+                    <span>Searching trusted sources...</span>
+                  </div>
+                ) : searchError ? (
+                  <div className="result-error-inline">{searchError}</div>
+                ) : hasSearched && (searchAnswer || searchResults.length > 0) ? (
+                  <>
+                    {searchAnswer && <div className="reading-search-answer">{searchAnswer}</div>}
+                    <div className="reading-search-results">
+                      {searchResults.map((result) => (
+                        <a
+                          key={result.url}
+                          className="reading-search-result"
+                          href={result.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="reading-search-result-title">{result.title}</span>
+                          <span className="reading-search-result-meta">{result.domain}</span>
+                          {result.content && (
+                            <span className="reading-search-result-content">{result.content}</span>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  </>
+                ) : hasSearched ? (
+                  <div className="result-hint">No relevant sources found.</div>
+                ) : (
+                  <div className="result-hint">Search only when you need more context.</div>
+                )}
+              </div>
+
+              <div className="result-section reading-ask">
+                <div className="result-section-header">
+                  <span className="result-label">Ask about this</span>
+                </div>
+                {askMessages.length > 0 && (
+                  <div className="reading-ask-messages">
+                    {askMessages.map((message, index) => (
+                      <div
+                        key={`${message.role}-${index}`}
+                        className={`reading-ask-message reading-ask-${message.role}`}
+                      >
+                        {message.content}
+                      </div>
+                    ))}
+                    {isAsking && (
+                      <div className="result-loading-inline">
+                        <div className="loading-spinner-small" />
+                        <span>Thinking...</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {askError && <div className="result-error-inline">{askError}</div>}
+                <div className="reading-ask-input">
+                  <input
+                    value={questionInput}
+                    onChange={(event) => setQuestionInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        void handleAsk()
+                      }
+                    }}
+                    placeholder="Ask about the selected text..."
+                    disabled={isAsking}
+                  />
+                  <button
+                    onClick={() => void handleAsk()}
+                    disabled={isAsking || !questionInput.trim()}
+                  >
+                    Ask
+                  </button>
+                </div>
+              </div>
+
               {/* Show message if LLM not configured */}
               {!dualResult.llm.available && (
                 <div className="result-hint">
@@ -561,7 +798,7 @@ const SelectTrans: React.FC<SelectTransProps> = ({
                     <path d="M12 16v-4" />
                     <path d="M12 8h.01" />
                   </svg>
-                  <span>Configure LLM API key in settings for higher quality AI translation</span>
+                  <span>Server AI is unavailable. Machine translation is still available.</span>
                 </div>
               )}
 

@@ -5,7 +5,7 @@
 
 import type { Env, SummaryResponse, SectionSummary, ChatMessage, UserApiKeys } from '../types'
 import { getProviderWithKey, getFirstAvailableProvider } from '../providers'
-import { translateWithUserKeys } from './translator'
+import { translateWithServerKey } from './translator'
 
 export interface SummarizeOptions {
   targetLang?: string
@@ -35,7 +35,7 @@ export async function summarizeText(
   const wordCount = text.split(/\s+/).length
   const estimatedReadTime = Math.ceil(wordCount / 200)
 
-  // Check if user has API keys configured
+  // Check if server has a DeepSeek API key configured
   const available = getFirstAvailableProvider(apiKeys)
   if (!available) {
     // Return basic summary without LLM
@@ -43,7 +43,7 @@ export async function summarizeText(
     const basicSummary = sentences.slice(0, 3).join('. ').trim()
 
     return {
-      summary: basicSummary || 'Summary unavailable (no API key configured)',
+      summary: basicSummary || 'Summary unavailable (server AI is not configured)',
       keyPoints: [],
       estimatedReadTime,
     }
@@ -104,7 +104,7 @@ Guidelines:
     // Translate if target language specified
     if (targetLang && Object.keys(apiKeys).length > 0) {
       // Translate summary
-      const translatedSummary = await translateWithUserKeys(
+      const translatedSummary = await translateWithServerKey(
         env,
         result.summary,
         targetLang,
@@ -119,7 +119,7 @@ Guidelines:
       if (result.keyPoints.length > 0) {
         const translatedPoints = await Promise.all(
           result.keyPoints.map((point) =>
-            translateWithUserKeys(env, point, targetLang, apiKeys, { useCache: true })
+            translateWithServerKey(env, point, targetLang, apiKeys, { useCache: true })
           )
         )
         result.keyPointsTranslated = translatedPoints.map((r) => r.translatedText)
@@ -173,7 +173,7 @@ export async function summarizeDocument(
   // Translate title if needed
   let titleTranslated: string | undefined
   if (targetLang && Object.keys(apiKeys).length > 0) {
-    const translatedTitle = await translateWithUserKeys(env, title, targetLang, apiKeys, {
+    const translatedTitle = await translateWithServerKey(env, title, targetLang, apiKeys, {
       useCache: true,
     })
     titleTranslated = translatedTitle.translatedText

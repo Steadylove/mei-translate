@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  机器翻译 + 大模型翻译 | PDF 翻译 | 语音朗读 | 8 大 AI 厂商
+  机器翻译 + 服务端 DeepSeek | PDF 翻译 | 语音朗读 | 阅读 Agent
 </p>
 
 ---
@@ -24,12 +24,13 @@
 - **全页翻译** - 一键翻译整个网页内容
 - **PDF 翻译** - 上传 PDF 文件，选中文字自动翻译，支持上下分栏对照
 - **上下文感知** - 自动检测内容类型（技术文档、新闻、学术论文等），优化翻译质量
+- **阅读 Agent** - 后台理解网页，并结合页面上下文解释划词内容
 
 ### AI 大模型
 
-- **8 大模型厂商** - OpenAI、Claude、DeepSeek、Gemini、通义千问、月之暗面、智谱 GLM、Groq
+- **服务端 AI** - 阅读理解、翻译和润色统一使用服务端 DeepSeek
 - **双翻译模式** - 机器翻译（快速免费）+ AI 翻译（高质量）并排展示
-- **自带 Key** - 用户自行配置 API Key，随时切换模型
+- **服务端密钥** - API Key 保存在 Cloudflare Workers，不进入扩展
 - **智能缓存** - 翻译结果自动缓存，节省 API 费用
 
 ### 用户体验
@@ -88,13 +89,13 @@ pnpm dev
 3. 点击 **加载已解压的扩展程序**
 4. 选择 `packages/extension/dist` 目录
 
-### 配置 AI 模型
+### 配置 AI 服务
 
-1. 点击扩展图标 → **More Settings**
-2. 在 AI Model Configuration 中添加任意厂商的 API Key
-3. 点击 **Use** 激活，选择你喜欢的模型
+1. 在服务端配置密钥：`wrangler secret put DEEPSEEK_API_KEY`
+2. 部署后端
+3. 在扩展的 **More Settings** 中配置翻译行为
 
-> 机器翻译无需任何 API Key 即可使用。AI 翻译需要至少配置一个厂商。
+> 机器翻译免费可用；AI 翻译和阅读 Agent 使用服务端 DeepSeek。
 
 ## 开发指南
 
@@ -155,17 +156,20 @@ pnpm build            # 生产构建
 
 ## API 接口
 
-| 接口                       | 方法 | 说明                     |
-| -------------------------- | ---- | ------------------------ |
-| `/api/translate`           | POST | 单文本翻译（需 API Key） |
-| `/api/translate/dual`      | POST | 双翻译（机器 + AI）      |
-| `/api/translate/free`      | POST | 免费机器翻译             |
-| `/api/translate/batch`     | POST | 批量翻译（最多 50 条）   |
-| `/api/translate/detect`    | POST | 语言检测                 |
-| `/api/translate/providers` | GET  | 获取支持的 AI 厂商列表   |
-| `/api/context`             | POST | 上下文分析               |
-| `/api/summary`             | POST | 文本摘要                 |
-| `/api/memory/*`            | CRUD | 翻译记忆管理             |
+| 接口                       | 方法 | 说明                           |
+| -------------------------- | ---- | ------------------------------ |
+| `/api/translate`           | POST | 单文本翻译（服务端 DeepSeek）  |
+| `/api/translate/dual`      | POST | 双翻译（机器 + AI）            |
+| `/api/translate/free`      | POST | 免费机器翻译                   |
+| `/api/translate/batch`     | POST | 批量翻译（最多 50 条）         |
+| `/api/translate/detect`    | POST | 语言检测                       |
+| `/api/translate/providers` | GET  | 获取服务端 DeepSeek 模型信息   |
+| `/api/context`             | POST | 上下文分析                     |
+| `/api/reading/explain`     | POST | 结合页面上下文解释划词内容     |
+| `/api/reading/ask`         | POST | 围绕划词内容继续追问           |
+| `/api/reading/search`      | POST | 用户主动检索划词内容的网页来源 |
+| `/api/summary`             | POST | 文本摘要                       |
+| `/api/memory/*`            | CRUD | 翻译记忆管理                   |
 
 ## 支持语言
 

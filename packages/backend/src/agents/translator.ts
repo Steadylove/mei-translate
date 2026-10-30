@@ -1,7 +1,7 @@
 /**
  * Translation Agent
  * Handles translation with context awareness and smart model routing
- * Supports user-provided API keys
+ * Supports server-managed API key
  */
 
 import type {
@@ -11,9 +11,9 @@ import type {
   ChatMessage,
   LLMResponse,
   UserApiKeys,
-  RefineRequest,
+  InternalRefineRequest,
 } from '../types'
-import { getProviderWithKey, getFirstAvailableProvider, PROVIDER_CONFIG } from '../providers'
+import { getProviderWithKey, PROVIDER_CONFIG } from '../providers'
 import { getCachedTranslation, setCachedTranslation, getBatchCached } from '../utils/cache'
 import { hashText } from '../utils/hash'
 
@@ -99,9 +99,9 @@ Rules:
 }
 
 /**
- * Translate with user-provided API keys
+ * Translate with server-managed API key
  */
-export async function translateWithUserKeys(
+export async function translateWithServerKey(
   env: Env,
   text: string,
   targetLang: string,
@@ -109,19 +109,11 @@ export async function translateWithUserKeys(
   options: {
     sourceLang?: string
     context?: PageContext
-    model?: ModelProvider
-    modelId?: string
     useCache?: boolean
     useMemory?: boolean
   } = {}
 ): Promise<TranslationResult> {
-  const {
-    sourceLang = detectLanguage(text),
-    context,
-    model: preferredModel,
-    modelId,
-    useCache = true,
-  } = options
+  const { sourceLang = detectLanguage(text), context, useCache = true } = options
 
   // Don't translate if source and target are the same
   if (sourceLang === targetLang) {
@@ -129,7 +121,7 @@ export async function translateWithUserKeys(
       translatedText: text,
       sourceLang,
       targetLang,
-      model: preferredModel || 'openai',
+      model: 'deepseek',
       cached: false,
       tokensUsed: 0,
     }
@@ -143,7 +135,7 @@ export async function translateWithUserKeys(
         translatedText: cached.translatedText,
         sourceLang,
         targetLang,
-        model: cached.model as ModelProvider,
+        model: 'deepseek',
         cached: true,
         tokensUsed: 0,
       }
@@ -151,21 +143,10 @@ export async function translateWithUserKeys(
   }
 
   // Get the provider and API key to use
-  let selectedProvider: ModelProvider
-  let apiKey: string
-
-  if (preferredModel && apiKeys[preferredModel]) {
-    // User specified a model and has the key
-    selectedProvider = preferredModel
-    apiKey = apiKeys[preferredModel]!
-  } else {
-    // Auto-select based on available keys
-    const available = getFirstAvailableProvider(apiKeys)
-    if (!available) {
-      throw new Error('No API key configured')
-    }
-    selectedProvider = available.provider
-    apiKey = available.apiKey
+  const selectedProvider: ModelProvider = 'deepseek'
+  const apiKey = apiKeys.deepseek
+  if (!apiKey) {
+    throw new Error('Server DeepSeek API key is not configured')
   }
 
   console.log(`[Translator] Using provider: ${selectedProvider}`)
@@ -177,7 +158,7 @@ export async function translateWithUserKeys(
   const provider = getProviderWithKey(selectedProvider, apiKey)
 
   // Use specific model if provided, otherwise use provider default
-  const specificModel = modelId || PROVIDER_CONFIG[selectedProvider].defaultModel
+  const specificModel = PROVIDER_CONFIG.deepseek.defaultModel
 
   const response: LLMResponse = await provider.chat(messages, {
     temperature: 0.3,
@@ -211,7 +192,7 @@ export async function translateWithUserKeys(
 }
 
 /**
- * Batch translate multiple texts with user API keys
+ * Batch translate multiple texts with server API key
  */
 export async function translateBatch(
   env: Env,
@@ -221,7 +202,6 @@ export async function translateBatch(
   options: {
     sourceLang?: string
     context?: PageContext
-    model?: ModelProvider
     useCache?: boolean
   } = {}
 ): Promise<{
@@ -232,7 +212,7 @@ export async function translateBatch(
   cachedCount: number
   tokensUsed: number
 }> {
-  const { context, model: preferredModel, useCache = true } = options
+  const { context, useCache = true } = options
 
   // Detect source language from first non-empty text
   const firstText = texts.find((t) => t.trim().length > 0) || ''
@@ -247,19 +227,10 @@ export async function translateBatch(
   const textsToTranslate = texts.filter((t) => !cachedResults.has(t))
 
   // Get provider and API key
-  let selectedProvider: ModelProvider
-  let apiKey: string
-
-  if (preferredModel && apiKeys[preferredModel]) {
-    selectedProvider = preferredModel
-    apiKey = apiKeys[preferredModel]!
-  } else {
-    const available = getFirstAvailableProvider(apiKeys)
-    if (!available) {
-      throw new Error('No API key configured')
-    }
-    selectedProvider = available.provider
-    apiKey = available.apiKey
+  const selectedProvider: ModelProvider = 'deepseek'
+  const apiKey = apiKeys.deepseek
+  if (!apiKey) {
+    throw new Error('Server DeepSeek API key is not configured')
   }
 
   let totalTokens = 0
@@ -334,7 +305,7 @@ export async function translateBatch(
  */
 export async function refineTranslation(
   env: Env,
-  request: RefineRequest
+  request: InternalRefineRequest
 ): Promise<{ refinedText: string; model: string }> {
   const {
     originalText,
@@ -344,8 +315,6 @@ export async function refineTranslation(
     targetLang,
     sourceLang,
     apiKeys,
-    model: preferredModel,
-    modelId,
   } = request
 
   const langNames: Record<string, string> = {
@@ -392,23 +361,14 @@ Rules:
   messages.push({ role: 'user', content: instruction })
 
   // Get provider
-  let selectedProvider: ModelProvider
-  let apiKey: string
-
-  if (preferredModel && apiKeys[preferredModel]) {
-    selectedProvider = preferredModel
-    apiKey = apiKeys[preferredModel]!
-  } else {
-    const available = getFirstAvailableProvider(apiKeys)
-    if (!available) {
-      throw new Error('No API key configured. Please add an API key in settings.')
-    }
-    selectedProvider = available.provider
-    apiKey = available.apiKey
+  const selectedProvider: ModelProvider = 'deepseek'
+  const apiKey = apiKeys.deepseek
+  if (!apiKey) {
+    throw new Error('Server DeepSeek API key is not configured')
   }
 
   const provider = getProviderWithKey(selectedProvider, apiKey)
-  const specificModel = modelId || PROVIDER_CONFIG[selectedProvider].defaultModel
+  const specificModel = PROVIDER_CONFIG.deepseek.defaultModel
 
   console.log(`[Refine] Using provider: ${selectedProvider}, model: ${specificModel}`)
 

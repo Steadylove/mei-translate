@@ -142,6 +142,7 @@ const Popup: React.FC = () => {
       <div className="space-y-2.5 px-5 pb-4">
         <Button
           onClick={handleTranslatePage}
+          disabled={!webTransEnabled}
           className="h-[52px] w-full justify-start rounded-2xl bg-teal-700 px-4 shadow-sm shadow-teal-900/15 transition-all duration-200 hover:-translate-y-0.5 hover:bg-teal-800 hover:shadow-md active:translate-y-0"
         >
           <span className="mr-3 flex h-8 w-8 items-center justify-center rounded-xl bg-white/14">

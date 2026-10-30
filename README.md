@@ -3,11 +3,11 @@
 [中文文档](./README.zh-CN.md)
 
 <p align="center">
-  <strong>A Chrome extension for intelligent translation powered by multiple AI models</strong>
+  <strong>A Chrome extension for intelligent translation and Reading Agent assistance</strong>
 </p>
 
 <p align="center">
-  Machine Translation + LLM Translation | PDF Translation | TTS | 8 AI Providers
+  Machine Translation + Server-Managed DeepSeek | PDF Translation | TTS | Reading Agent
 </p>
 
 ---
@@ -20,12 +20,13 @@
 - **Full Page Translation** - Translate entire web pages with one click
 - **PDF Translation** - Upload PDFs, select text, auto-translate with split-panel view
 - **Context-Aware** - Automatically detects content type (tech, news, academic, etc.) for better results
+- **Reading Agent** - Builds hidden page context and explains selected text in plain language
 
 ### AI & LLM
 
-- **8 AI Providers** - OpenAI, Claude, DeepSeek, Gemini, Qwen, Moonshot, Zhipu GLM, Groq
+- **Server-Managed AI** - Reading assistance, translation, and refinement use DeepSeek on the backend
 - **Dual Translation** - Machine translation (fast, free) + AI translation (high quality) shown side by side
-- **User-Configured Keys** - Bring your own API keys, switch models anytime
+- **No Client Keys** - API credentials stay in Cloudflare Workers secrets
 - **Smart Caching** - Translation results are cached to reduce API costs
 
 ### User Experience
@@ -84,13 +85,13 @@ pnpm dev
 3. Click **Load unpacked**
 4. Select `packages/extension/dist`
 
-### Configure AI Models
+### Configure the AI service
 
-1. Click the extension icon → **More Settings**
-2. Add your API key for any provider (OpenAI, Claude, DeepSeek, etc.)
-3. Click **Use** to activate, select your preferred model
+1. Set the server secret: `wrangler secret put DEEPSEEK_API_KEY`
+2. Deploy the backend
+3. Open **More Settings** to configure translation behavior
 
-> Machine translation works without any API key. AI translation requires at least one configured provider.
+> Machine translation is free. AI translation and Reading Agent features use the server-side DeepSeek model.
 
 ## Development
 
@@ -151,17 +152,20 @@ Load the `dist` folder in Chrome, or package as `.crx` for distribution.
 
 ## API Endpoints
 
-| Endpoint                   | Method | Description                                |
-| -------------------------- | ------ | ------------------------------------------ |
-| `/api/translate`           | POST   | Single text translation (requires API key) |
-| `/api/translate/dual`      | POST   | Dual translation (machine + AI)            |
-| `/api/translate/free`      | POST   | Free machine translation                   |
-| `/api/translate/batch`     | POST   | Batch translation (up to 50 texts)         |
-| `/api/translate/detect`    | POST   | Language detection                         |
-| `/api/translate/providers` | GET    | List available AI providers                |
-| `/api/context`             | POST   | Context analysis                           |
-| `/api/summary`             | POST   | Text summarization                         |
-| `/api/memory/*`            | CRUD   | Translation memory                         |
+| Endpoint                   | Method | Description                               |
+| -------------------------- | ------ | ----------------------------------------- |
+| `/api/translate`           | POST   | Single text translation (server DeepSeek) |
+| `/api/translate/dual`      | POST   | Dual translation (machine + AI)           |
+| `/api/translate/free`      | POST   | Free machine translation                  |
+| `/api/translate/batch`     | POST   | Batch translation (up to 50 texts)        |
+| `/api/translate/detect`    | POST   | Language detection                        |
+| `/api/translate/providers` | GET    | Get the server-managed DeepSeek model     |
+| `/api/context`             | POST   | Context analysis                          |
+| `/api/reading/explain`     | POST   | Explain selected text with page context   |
+| `/api/reading/ask`         | POST   | Ask follow-up questions about selection   |
+| `/api/reading/search`      | POST   | Search the web for selected text          |
+| `/api/summary`             | POST   | Text summarization                        |
+| `/api/memory/*`            | CRUD   | Translation memory                        |
 
 ## Supported Languages
 

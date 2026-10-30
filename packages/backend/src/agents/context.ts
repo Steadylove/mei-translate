@@ -28,7 +28,7 @@ export async function analyzeContext(
     }
   }
 
-  // Check if user has API keys configured
+  // Check if server has a DeepSeek API key configured
   const available = getFirstAvailableProvider(apiKeys)
   if (!available) {
     // Return default context if no API key

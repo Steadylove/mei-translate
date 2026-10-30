@@ -36,7 +36,7 @@
   },
 
   // TypeScript
-  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.tsdk": "packages/extension/node_modules/typescript/lib",
 
   // Files
   "files.eol": "\n",

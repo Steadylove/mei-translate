@@ -12,6 +12,7 @@ import { QwenProvider } from './qwen'
 import { MoonshotProvider } from './moonshot'
 import { ZhipuProvider } from './zhipu'
 import { GroqProvider } from './groq'
+import type { Env, UserApiKeys } from '../types'
 
 // All supported providers
 export type ModelProvider =
@@ -127,10 +128,20 @@ export const PROVIDER_CONFIG: Record<
 
 // Re-export UserApiKeys from types
 export type { UserApiKeys } from '../types'
-import type { UserApiKeys } from '../types'
 
 /**
- * Get LLM provider instance using user-provided API key
+ * The product uses one server-managed model for all LLM features.
+ * Keep this in one place so request payloads cannot override it.
+ */
+export const SERVER_MODEL: ModelProvider = 'deepseek'
+export const SERVER_MODEL_ID = PROVIDER_CONFIG.deepseek.defaultModel
+
+export function getServerApiKeys(env: Pick<Env, 'DEEPSEEK_API_KEY'>): UserApiKeys {
+  return env.DEEPSEEK_API_KEY ? { deepseek: env.DEEPSEEK_API_KEY } : {}
+}
+
+/**
+ * Get an LLM provider instance using a server-managed API key
  */
 export function getProviderWithKey(provider: ModelProvider, apiKey: string): LLMProvider {
   switch (provider) {

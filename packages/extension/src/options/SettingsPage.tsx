@@ -1,6 +1,6 @@
 /**
  * Settings Page Component
- * Includes API Key configuration and model selection
+ * Includes translation behavior and local settings
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -15,27 +15,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import Storage, {
-  StorageData,
-  ModelProvider,
-  UserApiKeys,
-  PROVIDER_CONFIG,
-} from '@/services/storage'
-import {
-  FileText,
-  Trash2,
-  Check,
-  Globe,
-  Type,
-  Volume2,
-  Key,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  Bot,
-  Cpu,
-  Zap,
-} from 'lucide-react'
+import Storage, { StorageData } from '@/services/storage'
+import { FileText, Trash2, Check, Globe, Type, Volume2 } from 'lucide-react'
 
 const LANGUAGES = [
   { value: 'zh', label: '中文' },
@@ -48,18 +29,6 @@ const LANGUAGES = [
   { value: 'ru', label: 'Русский' },
 ]
 
-// Provider list with display order
-const PROVIDERS: ModelProvider[] = [
-  'openai',
-  'claude',
-  'deepseek',
-  'gemini',
-  'groq',
-  'qwen',
-  'moonshot',
-  'zhipu',
-]
-
 interface SettingsPageProps {
   onOpenPdf: () => void
 }
@@ -68,19 +37,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
   const [settings, setSettings] = useState<StorageData | null>(null)
   const [blacklistText, setBlacklistText] = useState('')
   const [saved, setSaved] = useState(false)
-  const [apiKeys, setApiKeys] = useState<UserApiKeys>({})
-  const [visibleKeys, setVisibleKeys] = useState<Set<ModelProvider>>(new Set())
-  const [selectedProvider, setSelectedProvider] = useState<ModelProvider | null>(null)
-  const [selectedModel, setSelectedModel] = useState<string | null>(null)
   const appIconUrl = chrome.runtime.getURL('assets/icon128.png')
 
   useEffect(() => {
     Storage.getAllSettings().then((s) => {
       setSettings(s)
       setBlacklistText(s.blackList.join('\n'))
-      setApiKeys(s.apiKeys || {})
-      setSelectedProvider(s.selectedProvider)
-      setSelectedModel(s.selectedModel)
     })
   }, [])
 
@@ -98,56 +60,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const handleApiKeyChange = useCallback(
-    async (provider: ModelProvider, value: string) => {
-      const newKeys = { ...apiKeys, [provider]: value }
-      if (!value) {
-        delete newKeys[provider]
-      }
-      setApiKeys(newKeys)
-      await Storage.set('apiKeys', newKeys)
-      showSaved()
-    },
-    [apiKeys]
-  )
-
-  const toggleKeyVisibility = (provider: ModelProvider) => {
-    setVisibleKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(provider)) {
-        next.delete(provider)
-      } else {
-        next.add(provider)
-      }
-      return next
-    })
-  }
-
-  const handleProviderSelect = useCallback(
-    async (provider: ModelProvider) => {
-      // If same provider is already selected, don't reset the model
-      if (selectedProvider === provider) {
-        return
-      }
-
-      setSelectedProvider(provider)
-      const defaultModel = PROVIDER_CONFIG[provider].defaultModel
-      setSelectedModel(defaultModel)
-      await Storage.setMultiple({
-        selectedProvider: provider,
-        selectedModel: defaultModel,
-      })
-      showSaved()
-    },
-    [selectedProvider]
-  )
-
-  const handleModelSelect = useCallback(async (model: string) => {
-    setSelectedModel(model)
-    await Storage.set('selectedModel', model)
-    showSaved()
-  }, [])
-
   const handleSaveBlacklist = useCallback(async () => {
     const blackList = blacklistText
       .split('\n')
@@ -160,22 +72,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
   }, [blacklistText])
 
   const handleResetSettings = useCallback(async () => {
-    if (confirm('Reset all settings to defaults? This will clear all API keys.')) {
+    if (confirm('Reset all local settings to defaults?')) {
       await Storage.resetSettings()
       const newSettings = await Storage.getAllSettings()
       setSettings(newSettings)
       setBlacklistText(newSettings.blackList.join('\n'))
-      setApiKeys({})
-      setSelectedProvider(null)
-      setSelectedModel(null)
       showSaved()
     }
   }, [])
-
-  // Get configured providers
-  const configuredProviders = Object.keys(apiKeys).filter(
-    (key) => apiKeys[key as ModelProvider]
-  ) as ModelProvider[]
 
   if (!settings) {
     return (
@@ -208,135 +112,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
           )}
         </div>
 
-        {/* AI Model Configuration */}
+        {/* Server-side AI Configuration */}
         <Card className="border-slate-200 bg-white shadow-sm animate-slide-up stagger-1">
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2.5 text-slate-950">
-              <div className="rounded-2xl bg-teal-700 p-2 shadow-sm">
-                <Cpu className="w-5 h-5 text-white" />
-              </div>
-              AI Model Configuration
-            </CardTitle>
+            <CardTitle className="text-slate-950">Reading Agent AI</CardTitle>
             <CardDescription className="text-slate-600">
-              Configure your preferred AI model for translation. Add an API key to enable AI
-              translation.
+              AI translation and reading assistance use the server-managed DeepSeek model. No API
+              key is required in the extension.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Provider API Keys */}
-            <div className="space-y-3">
-              {PROVIDERS.map((provider, index) => {
-                const config = PROVIDER_CONFIG[provider]
-                const hasKey = !!apiKeys[provider]
-                const isVisible = visibleKeys.has(provider)
-                const isSelected = selectedProvider === provider
-
-                return (
-                  <div
-                    key={provider}
-                    className={`rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${
-                      isSelected
-                        ? 'border-teal-300 bg-teal-50 shadow-sm'
-                        : hasKey
-                          ? 'border-emerald-300 bg-emerald-50/50'
-                          : 'border-slate-200 bg-white hover:border-teal-300'
-                    }`}
-                    style={{ animationDelay: `${index * 0.05}s` }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Bot
-                          className={`w-4 h-4 transition-colors ${hasKey ? 'text-emerald-500' : 'text-slate-400'}`}
-                        />
-                        <span className="font-semibold text-slate-800">{config.name}</span>
-                        {hasKey && (
-                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-                            Configured
-                          </span>
-                        )}
-                        {isSelected && hasKey && (
-                          <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium animate-pulse">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <a
-                        href={config.docsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors hover:text-teal-700"
-                      >
-                        Get API Key
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type={isVisible ? 'text' : 'password'}
-                          value={apiKeys[provider] || ''}
-                          onChange={(e) => handleApiKeyChange(provider, e.target.value)}
-                          placeholder={config.placeholder}
-                          className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-10 font-mono text-sm text-slate-800 transition-all placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => toggleKeyVisibility(provider)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      {hasKey && (
-                        <Button
-                          variant={isSelected ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => handleProviderSelect(provider)}
-                          className={`transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 shadow-md' : 'hover:border-teal-300 hover:text-teal-600'}`}
-                        >
-                          {isSelected ? 'Selected' : 'Use'}
-                        </Button>
-                      )}
-                    </div>
-                    {/* Model selection for selected provider */}
-                    {isSelected && hasKey && (
-                      <div className="mt-3 pt-3 border-t border-teal-200/50 animate-fade-in">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-slate-600 font-medium">Model:</span>
-                          <Select value={selectedModel || ''} onValueChange={handleModelSelect}>
-                            <SelectTrigger className="flex-1 h-9 text-sm border-teal-200 focus:border-teal-400">
-                              <SelectValue placeholder="Select model" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {config.models.map((model) => (
-                                <SelectItem key={model.id} value={model.id}>
-                                  {model.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {configuredProviders.length === 0 && (
-              <div className="text-center py-8 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <Key className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-                <p className="text-sm font-medium">No API keys configured</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Add an API key above to enable AI translation.
-                </p>
-                <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-teal-600">
-                  <Zap className="h-3 w-3" />
-                  Machine translation works without API keys
-                </p>
+          <CardContent>
+            <div className="rounded-2xl border border-teal-100 bg-teal-50/60 px-4 py-3 text-sm text-teal-900">
+              <div className="font-semibold">DeepSeek Chat</div>
+              <div className="mt-1 text-teal-800/80">
+                Model selection and credentials are managed by the server.
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
@@ -500,7 +291,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenPdf }) => {
               Danger Zone
             </CardTitle>
             <CardDescription>
-              Reset all settings to their default values (including API keys)
+              Reset all local translation settings to their default values
             </CardDescription>
           </CardHeader>
           <CardContent>

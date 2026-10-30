@@ -10,6 +10,7 @@ import { translateRoute } from './routes/translate'
 import { summaryRoute } from './routes/summary'
 import { memoryRoute } from './routes/memory'
 import { contextRoute } from './routes/context'
+import { readingRoute } from './routes/reading'
 
 // Create Hono app with typed env
 const app = new Hono<{ Bindings: Env }>()
@@ -37,6 +38,7 @@ app.get('/', (c) => {
       batch: '/api/translate/batch',
       summary: '/api/summary',
       context: '/api/context',
+      reading: '/api/reading',
       memory: '/api/memory',
     },
   })
@@ -46,6 +48,7 @@ app.get('/', (c) => {
 app.route('/api/translate', translateRoute)
 app.route('/api/summary', summaryRoute)
 app.route('/api/context', contextRoute)
+app.route('/api/reading', readingRoute)
 app.route('/api/memory', memoryRoute)
 
 // 404 handler

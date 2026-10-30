@@ -1,17 +1,13 @@
 /**
  * Translation Service
  * Connects to the Mei Lingua backend
- * Includes user-configured API keys for LLM translation
+ * AI requests use the server-managed DeepSeek model.
  */
-
-import Storage, { ModelProvider, UserApiKeys } from './storage'
 
 // Backend API configuration - uses Vite's define or falls back to env check
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:8787' : 'https://webtrans-api.meitrans.workers.dev')
-
-export type { ModelProvider, UserApiKeys }
 
 export interface PageContext {
   type: 'technical' | 'news' | 'academic' | 'casual' | 'legal' | 'medical' | 'general'
@@ -27,8 +23,6 @@ export interface TranslateRequest {
   sourceLanguage?: string
   targetLanguage: string
   context?: PageContext
-  model?: ModelProvider
-  modelId?: string
   useCache?: boolean
   useMemory?: boolean
 }
@@ -62,7 +56,6 @@ export interface BatchTranslateRequest {
   sourceLanguage?: string
   targetLanguage: string
   context?: PageContext
-  model?: ModelProvider
 }
 
 export interface BatchTranslateResponse {
@@ -78,7 +71,24 @@ export interface DetectLanguageResponse {
   confidence: number
 }
 
-type FreeTranslateProvider = 'google-direct' | 'mymemory'
+export interface ReadingExplainResponse {
+  explanation: string
+  termExplanations: Array<{ term: string; explanation: string }>
+}
+
+export interface ReadingAskResponse {
+  answer: string
+}
+
+export interface ReadingSearchResponse {
+  answer?: string
+  results: Array<{
+    title: string
+    url: string
+    domain: string
+    content: string
+  }>
+}
 
 export interface ApiResponse<T> {
   success: boolean
@@ -90,169 +100,6 @@ export interface ApiResponse<T> {
     tokensUsed?: number
     processingTime?: number
   }
-}
-
-const FREE_TRANSLATE_TIMEOUT_MS = 5000
-const FREE_BATCH_CONCURRENCY = 6
-
-function hasConfiguredApiKey(apiKeys: UserApiKeys): boolean {
-  return Object.values(apiKeys).some((key) => key && key.trim().length > 0)
-}
-
-function normalizeFreeLanguageCode(lang?: string, provider?: FreeTranslateProvider): string {
-  if (!lang || lang === 'detect') return provider === 'mymemory' ? 'autodetect' : 'auto'
-
-  const normalized = lang.toLowerCase()
-  if (normalized === 'zh' || normalized === 'zh-cn') {
-    return provider === 'mymemory' ? 'zh-CN' : 'zh-CN'
-  }
-
-  return normalized.split('-')[0]
-}
-
-async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), FREE_TRANSLATE_TIMEOUT_MS)
-
-  try {
-    return await fetch(url, {
-      ...init,
-      signal: controller.signal,
-    })
-  } finally {
-    clearTimeout(timeoutId)
-  }
-}
-
-async function translateWithGoogleDirectClient(
-  text: string,
-  sourceLanguage: string | undefined,
-  targetLanguage: string
-): Promise<{ translatedText: string; sourceLanguage: string; provider: FreeTranslateProvider }> {
-  const source = normalizeFreeLanguageCode(sourceLanguage, 'google-direct')
-  const target = normalizeFreeLanguageCode(targetLanguage, 'google-direct')
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`
-  const response = await fetchWithTimeout(url)
-
-  if (!response.ok) {
-    throw new Error(`Google Direct error: ${response.status}`)
-  }
-
-  const data = await response.json()
-  if (!Array.isArray(data) || !Array.isArray(data[0])) {
-    throw new Error('Invalid Google response format')
-  }
-
-  return {
-    translatedText: data[0].map((item: unknown[]) => item[0]).join(''),
-    sourceLanguage: (data[2] as string | undefined) || sourceLanguage || 'auto',
-    provider: 'google-direct',
-  }
-}
-
-async function translateWithMyMemoryClient(
-  text: string,
-  sourceLanguage: string | undefined,
-  targetLanguage: string
-): Promise<{ translatedText: string; sourceLanguage: string; provider: FreeTranslateProvider }> {
-  const source = normalizeFreeLanguageCode(sourceLanguage, 'mymemory')
-  const target = normalizeFreeLanguageCode(targetLanguage, 'mymemory')
-  const langPair = `${source}|${target}`
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(langPair)}`
-  const response = await fetchWithTimeout(url)
-
-  if (!response.ok) {
-    throw new Error(`MyMemory error: ${response.status}`)
-  }
-
-  const data = (await response.json()) as {
-    responseStatus: number
-    responseData?: {
-      translatedText?: string
-      detectedLanguage?: string
-    }
-    quotaFinished?: boolean
-  }
-
-  if (data.responseStatus !== 200 || !data.responseData?.translatedText) {
-    throw new Error(`MyMemory translation failed: ${data.responseStatus}`)
-  }
-  if (data.quotaFinished) {
-    throw new Error('MyMemory daily quota exceeded')
-  }
-
-  return {
-    translatedText: data.responseData.translatedText,
-    sourceLanguage: data.responseData.detectedLanguage || sourceLanguage || 'auto',
-    provider: 'mymemory',
-  }
-}
-
-async function freeTranslateClient(
-  text: string,
-  sourceLanguage: string | undefined,
-  targetLanguage: string
-): Promise<{ translatedText: string; sourceLanguage: string; provider: FreeTranslateProvider }> {
-  const providers = [
-    translateWithGoogleDirectClient(text, sourceLanguage, targetLanguage),
-    translateWithMyMemoryClient(text, sourceLanguage, targetLanguage),
-  ]
-
-  return new Promise((resolve, reject) => {
-    const errors: string[] = []
-    let failedCount = 0
-
-    providers.forEach((providerPromise) => {
-      providerPromise.then(resolve).catch((error: unknown) => {
-        failedCount += 1
-        errors.push(error instanceof Error ? error.message : String(error))
-
-        if (failedCount === providers.length) {
-          reject(new Error(`Free translation failed: ${errors.join('; ')}`))
-        }
-      })
-    })
-  })
-}
-
-async function freeBatchTranslateClient(
-  texts: string[],
-  sourceLanguage: string | undefined,
-  targetLanguage: string
-): Promise<{ translations: string[]; sourceLanguage: string; provider: FreeTranslateProvider }> {
-  const translations: string[] = []
-  let detectedSource = sourceLanguage || 'auto'
-  let provider: FreeTranslateProvider = 'google-direct'
-
-  for (let i = 0; i < texts.length; i += FREE_BATCH_CONCURRENCY) {
-    const chunk = texts.slice(i, i + FREE_BATCH_CONCURRENCY)
-    const results = await Promise.all(
-      chunk.map((text) => freeTranslateClient(text, sourceLanguage, targetLanguage))
-    )
-
-    for (const result of results) {
-      translations.push(result.translatedText)
-      detectedSource = result.sourceLanguage
-      provider = result.provider
-    }
-  }
-
-  return { translations, sourceLanguage: detectedSource, provider }
-}
-
-/**
- * Get user's API keys and selected model from storage
- */
-async function getUserConfig(): Promise<{
-  apiKeys: UserApiKeys
-  provider: ModelProvider | null
-  model: string | null
-}> {
-  const [apiKeys, { provider, model }] = await Promise.all([
-    Storage.getApiKeys(),
-    Storage.getSelectedModel(),
-  ])
-  return { apiKeys, provider, model }
 }
 
 /**
@@ -308,34 +155,71 @@ export async function detectLanguage(text: string): Promise<DetectLanguageRespon
   }
 }
 
-/**
- * Translate a single text using user-configured API keys
- */
+/** Analyze page context without exposing the generated summary to the user. */
+export async function analyzePageContext(
+  content: string,
+  url?: string,
+  title?: string
+): Promise<PageContext> {
+  const result = await apiRequest<{ context: PageContext }>('/api/context', 'POST', {
+    content,
+    url,
+    title,
+  })
+  return result.context
+}
+
+/** Explain selected text with the server-managed Reading Agent. */
+export async function explainSelection(
+  text: string,
+  targetLanguage: string,
+  context?: PageContext
+): Promise<ReadingExplainResponse> {
+  return apiRequest<ReadingExplainResponse>('/api/reading/explain', 'POST', {
+    text,
+    targetLang: targetLanguage,
+    context,
+  })
+}
+
+/** Ask a follow-up question about selected text and page context. */
+export async function askAboutSelection(
+  text: string,
+  question: string,
+  targetLanguage: string,
+  context?: PageContext,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+): Promise<ReadingAskResponse> {
+  return apiRequest<ReadingAskResponse>('/api/reading/ask', 'POST', {
+    text,
+    question,
+    targetLang: targetLanguage,
+    context,
+    history,
+  })
+}
+
+/** Search the web for selected text after an explicit reader action. */
+export async function searchSelection(
+  text: string,
+  context?: PageContext
+): Promise<ReadingSearchResponse> {
+  return apiRequest<ReadingSearchResponse>('/api/reading/search', 'POST', {
+    text,
+    context,
+  })
+}
+
+/** Translate a single text through the server-managed DeepSeek model. */
 export async function translate(request: TranslateRequest): Promise<TranslateResponse> {
   const {
     text,
     targetLanguage,
     sourceLanguage,
     context,
-    model,
-    modelId,
     useCache = true,
     useMemory = true,
   } = request
-
-  // Get user's API keys
-  const { apiKeys, provider, model: selectedModel } = await getUserConfig()
-
-  if (!hasConfiguredApiKey(apiKeys)) {
-    const result = await freeTranslateClient(text, sourceLanguage, targetLanguage)
-    return {
-      translatedText: result.translatedText,
-      sourceLanguage: result.sourceLanguage,
-      targetLanguage,
-      model: result.provider,
-      cached: false,
-    }
-  }
 
   try {
     const result = await apiRequest<{
@@ -349,9 +233,6 @@ export async function translate(request: TranslateRequest): Promise<TranslateRes
       targetLang: targetLanguage,
       sourceLang: sourceLanguage,
       context,
-      model: model || provider,
-      modelId: modelId || selectedModel,
-      apiKeys,
       useCache,
       useMemory,
     })
@@ -365,42 +246,17 @@ export async function translate(request: TranslateRequest): Promise<TranslateRes
     }
   } catch (error) {
     console.error('Translation API error:', error)
-    // Return fallback mock translation
-    return {
-      translatedText: `[Translation pending] ${text}`,
-      sourceLanguage: sourceLanguage || 'unknown',
-      targetLanguage,
-    }
+    // Propagate the failure so the background script and UI can report it.
+    // Returning a placeholder here makes a failed request look like a real translation.
+    throw error
   }
 }
 
 /**
- * Dual translate - returns both machine translation and LLM translation
- * Machine translation is fast (free APIs), LLM is slower but higher quality
- * LLM uses user-configured API keys
+ * Dual translate - returns free machine translation and server-managed DeepSeek translation.
  */
 export async function dualTranslate(request: TranslateRequest): Promise<DualTranslateResponse> {
-  const { text, targetLanguage, sourceLanguage, context, model, modelId } = request
-
-  // Get user's API keys
-  const { apiKeys, provider, model: selectedModel } = await getUserConfig()
-
-  if (!hasConfiguredApiKey(apiKeys)) {
-    const result = await freeTranslateClient(text, sourceLanguage, targetLanguage)
-    return {
-      machine: {
-        translatedText: result.translatedText,
-        provider: result.provider,
-      },
-      llm: {
-        translatedText: null,
-        model: null,
-        available: false,
-      },
-      sourceLanguage: result.sourceLanguage,
-      targetLanguage,
-    }
-  }
+  const { text, targetLanguage, sourceLanguage, context } = request
 
   try {
     const result = await apiRequest<{
@@ -422,9 +278,6 @@ export async function dualTranslate(request: TranslateRequest): Promise<DualTran
       targetLang: targetLanguage,
       sourceLang: sourceLanguage,
       context,
-      model: model || provider,
-      modelId: modelId || selectedModel,
-      apiKeys,
     })
 
     return {
@@ -435,45 +288,16 @@ export async function dualTranslate(request: TranslateRequest): Promise<DualTran
     }
   } catch (error) {
     console.error('Dual translation API error:', error)
-    // Return fallback with error
-    return {
-      machine: {
-        translatedText: null,
-        provider: null,
-        error: error instanceof Error ? error.message : 'Translation failed',
-      },
-      llm: {
-        translatedText: null,
-        model: null,
-        available: false,
-      },
-      sourceLanguage: sourceLanguage || 'unknown',
-      targetLanguage,
-    }
+    // Network and backend failures should reach the UI as errors.
+    throw error
   }
 }
 
-/**
- * Batch translate multiple texts
- */
+/** Batch translate through the server-managed DeepSeek model. */
 export async function batchTranslate(
   request: BatchTranslateRequest
 ): Promise<BatchTranslateResponse> {
-  const { texts, targetLanguage, sourceLanguage, context, model } = request
-
-  // Get user's API keys
-  const { apiKeys, provider } = await getUserConfig()
-
-  if (!hasConfiguredApiKey(apiKeys)) {
-    const result = await freeBatchTranslateClient(texts, sourceLanguage, targetLanguage)
-    return {
-      translations: result.translations,
-      sourceLanguage: result.sourceLanguage,
-      targetLanguage,
-      model: result.provider,
-      cachedCount: 0,
-    }
-  }
+  const { texts, targetLanguage, sourceLanguage, context } = request
 
   try {
     const result = await apiRequest<{
@@ -487,8 +311,6 @@ export async function batchTranslate(
       targetLang: targetLanguage,
       sourceLang: sourceLanguage,
       context,
-      model: model || provider,
-      apiKeys,
     })
 
     return {
@@ -500,18 +322,12 @@ export async function batchTranslate(
     }
   } catch (error) {
     console.error('Batch translation API error:', error)
-    // Return original texts as fallback
-    return {
-      translations: texts.map((t) => `[Translation pending] ${t}`),
-      sourceLanguage: sourceLanguage || 'unknown',
-      targetLanguage,
-    }
+    // Do not insert placeholders into a page.
+    throw error
   }
 }
 
-/**
- * Refine translation request/response
- */
+/** Refine a translation through the server-managed DeepSeek model. */
 export interface RefineTranslateRequest {
   originalText: string
   currentTranslation: string
@@ -519,8 +335,6 @@ export interface RefineTranslateRequest {
   history: Array<{ role: 'user' | 'assistant'; content: string }>
   targetLang: string
   sourceLang?: string
-  model?: ModelProvider
-  modelId?: string
 }
 
 export interface RefineTranslateResponse {
@@ -528,32 +342,20 @@ export interface RefineTranslateResponse {
   model: string
 }
 
-/**
- * Refine a translation through multi-turn conversation with LLM
- */
 export async function refineTranslation(
   request: RefineTranslateRequest
 ): Promise<RefineTranslateResponse> {
-  const { apiKeys, provider, model: selectedModel } = await getUserConfig()
-
-  const result = await apiRequest<RefineTranslateResponse>('/api/translate/refine', 'POST', {
+  return apiRequest<RefineTranslateResponse>('/api/translate/refine', 'POST', {
     originalText: request.originalText,
     currentTranslation: request.currentTranslation,
     instruction: request.instruction,
     history: request.history,
     targetLang: request.targetLang,
     sourceLang: request.sourceLang,
-    apiKeys,
-    model: request.model || provider,
-    modelId: request.modelId || selectedModel,
   })
-
-  return result
 }
 
-/**
- * Request web page translation (batch translation for page texts)
- */
+/** Request web page translation (batch translation for page texts). */
 export async function requestWebPageTranslation(
   texts: string[],
   sourceLanguage: string | undefined,
