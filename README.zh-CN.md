@@ -12,6 +12,10 @@
 
 ---
 
+## 设计文档
+
+- [阅读 Agent 第一版交互说明](./docs/reading-agent-v1-interaction.md)
+
 ## 功能特性
 
 ### 核心翻译
